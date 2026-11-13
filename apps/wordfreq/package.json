@@ -1,0 +1,22 @@
+{
+  "name": "@test-project/wordfreq",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "wordfreq": "./bin/wordfreq.js"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@test-project/wordcount": "workspace:*",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
