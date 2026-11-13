@@ -9,3 +9,14 @@ export function countWords(text: string): Record<string, number> {
   }
   return counts;
 }
+
+export const STOP_WORDS: ReadonlySet<string> = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from",
+  "has", "have", "he", "her", "his", "i", "in", "is", "it", "its", "of",
+  "on", "or", "she", "that", "the", "their", "they", "this", "to", "was",
+  "were", "will", "with", "you",
+]);
+
+export function filterStopWords(counts: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(Object.entries(counts).filter(([word]) => !STOP_WORDS.has(word)));
+}

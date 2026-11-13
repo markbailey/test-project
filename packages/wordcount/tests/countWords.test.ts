@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { countWords } from "../src/index";
+import { STOP_WORDS, countWords, filterStopWords } from "../src/index";
+
+describe("filterStopWords", () => {
+  it("removes stop words and keeps others", () => {
+    expect(filterStopWords({ the: 3, a: 2, and: 1, of: 1, to: 1, cat: 2 })).toEqual({ cat: 2 });
+  });
+
+  it("does not mutate input", () => {
+    const counts = { the: 1, dog: 1 };
+    filterStopWords(counts);
+    expect(counts).toEqual({ the: 1, dog: 1 });
+  });
+
+  it("handles empty counts", () => {
+    expect(filterStopWords({})).toEqual({});
+  });
+
+  it("exposes common stop words", () => {
+    for (const w of ["the", "a", "and", "of", "to"]) expect(STOP_WORDS.has(w)).toBe(true);
+  });
+});
 
 describe("countWords", () => {
   it("returns empty object for empty string", () => {

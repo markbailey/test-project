@@ -1,20 +1,24 @@
 import { readFile } from "node:fs/promises";
-import { countWords } from "@test-project/wordcount";
+import { countWords, filterStopWords } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file> [--top N]";
+export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common]";
 
 export interface Args {
   file: string;
   top: number;
+  ignoreCommon: boolean;
 }
 
 export function parseArgs(argv: string[]): Args {
   let file: string | undefined;
   let top = DEFAULT_TOP;
+  let ignoreCommon = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--top") {
+    if (arg === "--ignore-common") {
+      ignoreCommon = true;
+    } else if (arg === "--top") {
       const value = argv[++i];
       const n = Number(value);
       if (value === undefined || !Number.isInteger(n) || n < 0) {
@@ -28,7 +32,7 @@ export function parseArgs(argv: string[]): Args {
     }
   }
   if (file === undefined) throw new Error("Missing <file> argument");
-  return { file, top };
+  return { file, top, ignoreCommon };
 }
 
 export function topWords(
@@ -60,7 +64,9 @@ export async function run(argv: string[], io: Io): Promise<number> {
     io.err(`Error: cannot read file: ${args.file}`);
     return 1;
   }
-  for (const [word, count] of topWords(countWords(text), args.top)) {
+  let counts = countWords(text);
+  if (args.ignoreCommon) counts = filterStopWords(counts);
+  for (const [word, count] of topWords(counts, args.top)) {
     io.out(`${word}: ${count}`);
   }
   return 0;
