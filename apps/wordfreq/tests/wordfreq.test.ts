@@ -37,12 +37,16 @@ describe("topWords", () => {
 describe("parseArgs", () => {
   it("defaults top to 10", () => {
     expect(DEFAULT_TOP).toBe(10);
-    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10 });
+    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false });
   });
 
   it("parses --top before or after file", () => {
-    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3 });
-    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3 });
+    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false });
+    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false });
+  });
+
+  it("parses --ignore-common", () => {
+    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true });
   });
 
   it("rejects bad input", () => {
@@ -72,6 +76,24 @@ describe("run", () => {
     const c = capture();
     expect(await run([file, "--top", "2"], c.io)).toBe(0);
     expect(c.out).toEqual(["the: 3", "cat: 2"]);
+  });
+
+  it("defaults to top 10", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wordfreq-"));
+    const file = join(dir, "in.txt");
+    writeFileSync(file, "a b c d e f g h i j k l");
+    const c = capture();
+    expect(await run([file], c.io)).toBe(0);
+    expect(c.out).toHaveLength(10);
+  });
+
+  it("skips stop words with --ignore-common", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wordfreq-"));
+    const file = join(dir, "in.txt");
+    writeFileSync(file, "The cat and the dog of a cat to the bird");
+    const c = capture();
+    expect(await run([file, "--ignore-common", "--top", "2"], c.io)).toBe(0);
+    expect(c.out).toEqual(["cat: 2", "bird: 1"]);
   });
 
   it("exits 1 with error for missing file", async () => {
