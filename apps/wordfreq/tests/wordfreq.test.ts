@@ -37,16 +37,20 @@ describe("topWords", () => {
 describe("parseArgs", () => {
   it("defaults top to 10", () => {
     expect(DEFAULT_TOP).toBe(10);
-    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false });
+    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false });
   });
 
   it("parses --top before or after file", () => {
-    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false });
-    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false });
+    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false });
+    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false });
   });
 
   it("parses --ignore-common", () => {
-    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true });
+    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false });
+  });
+
+  it("parses --json", () => {
+    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true });
   });
 
   it("rejects bad input", () => {
@@ -94,6 +98,42 @@ describe("run", () => {
     const c = capture();
     expect(await run([file, "--ignore-common", "--top", "2"], c.io)).toBe(0);
     expect(c.out).toEqual(["cat: 2", "bird: 1"]);
+  });
+
+  it("prints JSON with --json in text-output order", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wordfreq-"));
+    const file = join(dir, "in.txt");
+    writeFileSync(file, "The cat. the dog, THE bird! cat dog");
+    const c = capture();
+    expect(await run([file, "--json"], c.io)).toBe(0);
+    expect(c.out).toHaveLength(1);
+    expect(JSON.parse(c.out[0])).toEqual([
+      { word: "the", count: 3 },
+      { word: "cat", count: 2 },
+      { word: "dog", count: 2 },
+      { word: "bird", count: 1 },
+    ]);
+  });
+
+  it("combines --json with --top and --ignore-common", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wordfreq-"));
+    const file = join(dir, "in.txt");
+    writeFileSync(file, "The cat and the dog of a cat to the bird");
+    const c = capture();
+    expect(await run(["--json", file, "--ignore-common", "--top", "2"], c.io)).toBe(0);
+    expect(JSON.parse(c.out[0])).toEqual([
+      { word: "cat", count: 2 },
+      { word: "bird", count: 1 },
+    ]);
+  });
+
+  it("prints empty JSON array when no words", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wordfreq-"));
+    const file = join(dir, "in.txt");
+    writeFileSync(file, "-- ... {");
+    const c = capture();
+    expect(await run([file, "--json"], c.io)).toBe(0);
+    expect(c.out).toEqual(["[]"]);
   });
 
   it("exits 1 with error for missing file", async () => {

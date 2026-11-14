@@ -2,22 +2,26 @@ import { readFile } from "node:fs/promises";
 import { countWords, filterStopWords } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common]";
+export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json]";
 
 export interface Args {
   file: string;
   top: number;
   ignoreCommon: boolean;
+  json: boolean;
 }
 
 export function parseArgs(argv: string[]): Args {
   let file: string | undefined;
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
+  let json = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--ignore-common") {
       ignoreCommon = true;
+    } else if (arg === "--json") {
+      json = true;
     } else if (arg === "--top") {
       const value = argv[++i];
       const n = Number(value);
@@ -32,7 +36,7 @@ export function parseArgs(argv: string[]): Args {
     }
   }
   if (file === undefined) throw new Error("Missing <file> argument");
-  return { file, top, ignoreCommon };
+  return { file, top, ignoreCommon, json };
 }
 
 export function topWords(
@@ -66,7 +70,12 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
   let counts = countWords(text);
   if (args.ignoreCommon) counts = filterStopWords(counts);
-  for (const [word, count] of topWords(counts, args.top)) {
+  const top = topWords(counts, args.top);
+  if (args.json) {
+    io.out(JSON.stringify(top.map(([word, count]) => ({ word, count }))));
+    return 0;
+  }
+  for (const [word, count] of top) {
     io.out(`${word}: ${count}`);
   }
   return 0;
