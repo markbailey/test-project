@@ -50,4 +50,30 @@ describe("countWords", () => {
   it("skips tokens that are only punctuation", () => {
     expect(countWords("wow ! ...")).toEqual({ wow: 1 });
   });
+
+  it("treats different casings as the same word", () => {
+    expect(countWords("The the THE tHe")).toEqual({ the: 4 });
+  });
+
+  it("strips leading and trailing punctuation", () => {
+    expect(countWords('"hello," (hello) hello! [hello] {hello}')).toEqual({ hello: 5 });
+  });
+
+  it("keeps apostrophes inside words", () => {
+    expect(countWords("don't it's Don't")).toEqual({ "don't": 2, "it's": 1 });
+  });
+
+  it("strips quotes wrapping a word", () => {
+    expect(countWords("'quoted' \"quoted\"")).toEqual({ quoted: 2 });
+  });
+
+  it("ignores tokens with no letters or digits", () => {
+    expect(countWords("a { -- ... } -> 42 * b")).toEqual({ a: 1, "42": 1, b: 1 });
+  });
+
+  it("handles a sentence mixing all rules", () => {
+    expect(
+      countWords(`"Don't," she said -- (it's) 'quoted' { The THE the... don't! ... it's`),
+    ).toEqual({ "don't": 2, she: 1, said: 1, "it's": 2, quoted: 1, the: 3 });
+  });
 });

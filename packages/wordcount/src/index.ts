@@ -1,4 +1,5 @@
-const EDGE_PUNCTUATION = /^[.,!?;:"'()]+|[.,!?;:"'()]+$/g;
+// Anything that isn't a letter or digit at either end of a token; inner apostrophes survive.
+const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
 export function countWords(text: string): Record<string, number> {
   const counts: Record<string, number> = {};
