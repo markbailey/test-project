@@ -40,7 +40,7 @@ describe("countWords", () => {
   });
 
   it("ignores trailing , ! ? punctuation", () => {
-    expect(countWords("Hi, hi! HI? hi.")).toEqual({ hi: 5 });
+    expect(countWords("Hi, hi! HI? hi.")).toEqual({ hi: 4 });
   });
 
   it("handles words that shadow Object.prototype keys", () => {
