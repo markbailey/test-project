@@ -1,12 +1,31 @@
 // Anything that isn't a letter or digit at either end of a token; inner apostrophes survive.
 const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
-export function countWords(text: string): Record<string, number> {
-  const counts: Record<string, number> = {};
+// Words per sentence; a raw token ending in . ! or ? closes its sentence.
+function tokenizeSentences(text: string): string[][] {
+  const sentences: string[][] = [[]];
   for (const token of text.split(/(?:\s|[—–\/]|-{2,})+/u)) {
     const word = token.replace(EDGE_PUNCTUATION, "").toLowerCase();
-    if (!word) continue;
-    counts[word] = Object.hasOwn(counts, word) ? counts[word] + 1 : 1;
+    if (word) sentences[sentences.length - 1].push(word);
+    if (/[.!?]$/u.test(token)) sentences.push([]);
+  }
+  return sentences;
+}
+
+export function countWords(text: string): Record<string, number> {
+  return countNgrams(text, 1);
+}
+
+export function countNgrams(text: string, n: number): Record<string, number> {
+  if (!Number.isInteger(n) || n < 1 || n > 5) {
+    throw new RangeError(`n must be an integer from 1 to 5, got ${n}`);
+  }
+  const counts: Record<string, number> = {};
+  for (const words of tokenizeSentences(text)) {
+    for (let i = 0; i + n <= words.length; i++) {
+      const gram = words.slice(i, i + n).join(" ");
+      counts[gram] = Object.hasOwn(counts, gram) ? counts[gram] + 1 : 1;
+    }
   }
   return counts;
 }
@@ -23,4 +42,11 @@ export function filterStopWords(
   stopWords: ReadonlySet<string> = STOP_WORDS,
 ): Record<string, number> {
   return Object.fromEntries(Object.entries(counts).filter(([word]) => !stopWords.has(word)));
+}
+
+export function ngramIsAllStopWords(
+  ngram: string,
+  stopWords: ReadonlySet<string> = STOP_WORDS,
+): boolean {
+  return ngram.split(" ").every((word) => stopWords.has(word));
 }
