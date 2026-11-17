@@ -3,6 +3,13 @@ import { countWords, filterStopWords } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
 export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json]";
+export const HELP = [
+  USAGE,
+  `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
+  "  --ignore-common  skip common stop words",
+  "  --json           print results as JSON",
+  "  -h, --help       show this help",
+].join("\n");
 
 export interface Args {
   file: string;
@@ -54,6 +61,10 @@ export interface Io {
 }
 
 export async function run(argv: string[], io: Io): Promise<number> {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    io.out(HELP);
+    return 0;
+  }
   let args: Args;
   try {
     args = parseArgs(argv);
