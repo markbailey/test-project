@@ -76,4 +76,37 @@ describe("countWords", () => {
       countWords(`"Don't," she said -- (it's) 'quoted' { The THE the... don't! ... it's`),
     ).toEqual({ "don't": 2, she: 1, said: 1, "it's": 2, quoted: 1, the: 3 });
   });
+
+  it("splits on em dash", () => {
+    expect(countWords("well—known")).toEqual({ well: 1, known: 1 });
+  });
+
+  it("splits on en dash", () => {
+    expect(countWords("pages 10–20")).toEqual({ pages: 1, "10": 1, "20": 1 });
+  });
+
+  it("splits on slash", () => {
+    expect(countWords("and/or")).toEqual({ and: 1, or: 1 });
+  });
+
+  it("splits on double hyphen", () => {
+    expect(countWords("yes--no")).toEqual({ yes: 1, no: 1 });
+  });
+
+  it("keeps single hyphen inside a word", () => {
+    expect(countWords("well-known")).toEqual({ "well-known": 1 });
+  });
+
+  it("handles a sentence mixing all separators", () => {
+    expect(countWords("Well-known—and/or DON'T--(maybe) pages 10–20.")).toEqual({
+      "well-known": 1,
+      and: 1,
+      or: 1,
+      "don't": 1,
+      maybe: 1,
+      pages: 1,
+      "10": 1,
+      "20": 1,
+    });
+  });
 });
