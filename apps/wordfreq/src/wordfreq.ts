@@ -1,14 +1,27 @@
 import { readFile } from "node:fs/promises";
-import { countWords, filterStopWords } from "@test-project/wordcount";
+import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json] [--version]";
+export const USAGE =
+  "Usage: wordfreq <file|-> [--top N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--version]";
+export const HELP = [
+  USAGE,
+  `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
+  "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
+  "  --ignore-common  skip common stop words",
+  "  --stop-words <path>  skip words listed in a file, one per line",
+  "  --json           print results as JSON",
+  "  --version        print the version",
+  "  -h, --help       show this help",
+].join("\n");
 
 export interface Args {
   file: string;
   top: number;
   ignoreCommon: boolean;
   json: boolean;
+  ngram: number;
+  stopWordsFile?: string;
 }
 
 export function parseArgs(argv: string[]): Args {
@@ -16,9 +29,15 @@ export function parseArgs(argv: string[]): Args {
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
   let json = false;
+  let ngram = 1;
+  let stopWordsFile: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--ignore-common") {
+    if (arg === "--stop-words") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("Missing --stop-words value");
+      stopWordsFile = value;
+    } else if (arg === "--ignore-common") {
       ignoreCommon = true;
     } else if (arg === "--json") {
       json = true;
@@ -29,6 +48,13 @@ export function parseArgs(argv: string[]): Args {
         throw new Error(`Invalid --top value: ${value ?? "(missing)"}`);
       }
       top = n;
+    } else if (arg === "--ngram") {
+      const value = argv[++i];
+      const n = Number(value);
+      if (value === undefined || !Number.isInteger(n) || n < 1 || n > 5) {
+        throw new Error(`Invalid --ngram value: ${value ?? "(missing)"}`);
+      }
+      ngram = n;
     } else if (file === undefined) {
       file = arg;
     } else {
@@ -36,7 +62,9 @@ export function parseArgs(argv: string[]): Args {
     }
   }
   if (file === undefined) throw new Error("Missing <file> argument");
-  return { file, top, ignoreCommon, json };
+  return stopWordsFile === undefined
+    ? { file, top, ignoreCommon, json, ngram }
+    : { file, top, ignoreCommon, json, ngram, stopWordsFile };
 }
 
 export function topWords(
@@ -51,9 +79,14 @@ export function topWords(
 export interface Io {
   out: (line: string) => void;
   err: (line: string) => void;
+  in: () => Promise<string>;
 }
 
 export async function run(argv: string[], io: Io): Promise<number> {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    io.out(HELP);
+    return 0;
+  }
   if (argv.includes("--version")) {
     const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     io.out(pkg.version);
@@ -67,14 +100,46 @@ export async function run(argv: string[], io: Io): Promise<number> {
     return 1;
   }
   let text: string;
-  try {
-    text = await readFile(args.file, "utf8");
-  } catch {
-    io.err(`Error: cannot read file: ${args.file}`);
-    return 1;
+  if (args.file === "-") {
+    text = await io.in();
+  } else {
+    try {
+      text = await readFile(args.file, "utf8");
+    } catch {
+      io.err(`Error: cannot read file: ${args.file}`);
+      return 1;
+    }
   }
-  let counts = countWords(text);
-  if (args.ignoreCommon) counts = filterStopWords(counts);
+  let fileStopWords: Set<string> | undefined;
+  if (args.stopWordsFile !== undefined) {
+    let content: string;
+    try {
+      content = await readFile(args.stopWordsFile, "utf8");
+    } catch {
+      io.err(`Error: cannot read stop words file: ${args.stopWordsFile}`);
+      return 1;
+    }
+    fileStopWords = new Set(
+      content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"))
+        .map((line) => line.toLowerCase()),
+    );
+  }
+  let counts = countNgrams(text, args.ngram);
+  const stopWords = fileStopWords
+    ? (args.ignoreCommon ? new Set([...STOP_WORDS, ...fileStopWords]) : fileStopWords)
+    : (args.ignoreCommon ? STOP_WORDS : undefined);
+  if (stopWords) {
+    counts = Object.fromEntries(
+      Object.entries(counts).filter(([gram]) => !ngramIsAllStopWords(gram, stopWords)),
+    );
+  }
+  if (!args.json && Object.keys(counts).length === 0) {
+    io.err(`No words found in ${args.file}`);
+    return 0;
+  }
   const top = topWords(counts, args.top);
   if (args.json) {
     io.out(JSON.stringify(top.map(([word, count]) => ({ word, count }))));
