@@ -53,8 +53,18 @@ describe("parseArgs", () => {
     expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true });
   });
 
+  it("parses --stop-words before or after file", () => {
+    expect(parseArgs(["f.txt", "--stop-words", "s.txt"])).toEqual({
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, stopWordsFile: "s.txt",
+    });
+    expect(parseArgs(["--stop-words", "s.txt", "f.txt"])).toEqual({
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, stopWordsFile: "s.txt",
+    });
+  });
+
   it("rejects bad input", () => {
     expect(() => parseArgs([])).toThrow(/Missing/);
+    expect(() => parseArgs(["f.txt", "--stop-words"])).toThrow(/--stop-words/);
     expect(() => parseArgs(["f.txt", "--top"])).toThrow(/--top/);
     expect(() => parseArgs(["f.txt", "--top", "abc"])).toThrow(/--top/);
     expect(() => parseArgs(["f.txt", "--top", "-1"])).toThrow(/--top/);
@@ -247,6 +257,58 @@ describe("run", () => {
     expect(c.err).toEqual([]);
   });
 
+  describe("--stop-words", () => {
+    function stopFile(content: string) {
+      const file = join(mkdtempSync(join(tmpdir(), "wordfreq-")), "stop.txt");
+      writeFileSync(file, content);
+      return file;
+    }
+
+    it("removes only the file's words", async () => {
+      const file = tempFile("the cat the dog bird");
+      const c = capture();
+      expect(await run([file, "--stop-words", stopFile("cat\ndog\n")], c.io)).toBe(0);
+      expect(c.out).toEqual(["the: 2", "bird: 1"]);
+    });
+
+    it("ignores blank, whitespace-only and # comment lines", async () => {
+      const file = tempFile("cat dog bird");
+      const c = capture();
+      expect(await run([file, "--stop-words", stopFile("\n   \n# cat\ndog\n\t\n")], c.io)).toBe(0);
+      expect(c.out).toEqual(["bird: 1", "cat: 1"]);
+    });
+
+    it("matches case-insensitively", async () => {
+      const file = tempFile("cat CAT Cat dog");
+      const c = capture();
+      expect(await run([file, "--stop-words", stopFile("Cat\n")], c.io)).toBe(0);
+      expect(c.out).toEqual(["dog: 1"]);
+    });
+
+    it("combines with --ignore-common", async () => {
+      const file = tempFile("the cat and dog bird");
+      const c = capture();
+      expect(await run([file, "--ignore-common", "--stop-words", stopFile("cat\n")], c.io)).toBe(0);
+      expect(c.out).toEqual(["bird: 1", "dog: 1"]);
+    });
+
+    it("handles CRLF line endings", async () => {
+      const file = tempFile("cat dog bird");
+      const c = capture();
+      expect(await run([file, "--stop-words", stopFile("cat\r\ndog\r\n")], c.io)).toBe(0);
+      expect(c.out).toEqual(["bird: 1"]);
+    });
+
+    it("exits 1 when the stop-words file is missing", async () => {
+      const file = tempFile("cat dog");
+      const missing = join(tmpdir(), "nope-wordfreq-stop.txt");
+      const c = capture();
+      expect(await run([file, "--stop-words", missing], c.io)).toBe(1);
+      expect(c.err).toEqual([`Error: cannot read stop words file: ${missing}`]);
+      expect(c.out).toEqual([]);
+    });
+  });
+
   it("exits 1 with error for missing file", async () => {
     const c = capture();
     expect(await run([join(tmpdir(), "nope-wordfreq-xyz.txt")], c.io)).toBe(1);
@@ -264,7 +326,7 @@ describe("run", () => {
     const text = c.out.join("\n");
     expect(text.startsWith(USAGE)).toBe(true);
     const lines = text.split("\n");
-    for (const opt of ["--top N", "--ignore-common", "--json"]) {
+    for (const opt of ["--top N", "--ignore-common", "--json", "--stop-words"]) {
       expect(lines.slice(1).filter((l) => l.includes(opt))).toHaveLength(1);
     }
     expect(c.err).toEqual([]);

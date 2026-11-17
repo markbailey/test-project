@@ -18,6 +18,9 @@ export const STOP_WORDS: ReadonlySet<string> = new Set([
   "were", "will", "with", "you",
 ]);
 
-export function filterStopWords(counts: Record<string, number>): Record<string, number> {
-  return Object.fromEntries(Object.entries(counts).filter(([word]) => !STOP_WORDS.has(word)));
+export function filterStopWords(
+  counts: Record<string, number>,
+  stopWords: ReadonlySet<string> = STOP_WORDS,
+): Record<string, number> {
+  return Object.fromEntries(Object.entries(counts).filter(([word]) => !stopWords.has(word)));
 }
