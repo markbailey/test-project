@@ -1,6 +1,7 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TOP, HELP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
 
@@ -445,6 +446,16 @@ describe("run", () => {
     expect(await run([join(tmpdir(), "nope-wordfreq-xyz.txt")], c.io)).toBe(1);
     expect(c.err.join("\n")).toMatch(/cannot read file/);
     expect(c.out).toEqual([]);
+  });
+
+  it("prints package.json version with --version and no file", async () => {
+    const pkg = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+    );
+    const c = capture();
+    expect(await run(["--version"], c.io)).toBe(0);
+    expect(c.out).toEqual([pkg.version]);
+    expect(c.err).toEqual([]);
   });
 
   it("exits 1 on bad args", async () => {
