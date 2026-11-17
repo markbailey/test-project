@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { countWords, filterStopWords } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json]";
+export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json] [--version]";
 
 export interface Args {
   file: string;
@@ -54,6 +54,11 @@ export interface Io {
 }
 
 export async function run(argv: string[], io: Io): Promise<number> {
+  if (argv.includes("--version")) {
+    const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    io.out(pkg.version);
+    return 0;
+  }
   let args: Args;
   try {
     args = parseArgs(argv);
