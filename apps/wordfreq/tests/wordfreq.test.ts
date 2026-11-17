@@ -136,6 +136,56 @@ describe("run", () => {
     expect(c.out).toEqual(["[]"]);
   });
 
+  function tempFile(content: string) {
+    const file = join(mkdtempSync(join(tmpdir(), "wordfreq-")), "in.txt");
+    writeFileSync(file, content);
+    return file;
+  }
+
+  for (const [name, content, extra] of [
+    ["empty file", "", []],
+    ["whitespace-only file", "  \n\t ", []],
+    ["punctuation-only file", "-- ... {", []],
+    ["stop-words-only file with --ignore-common", "the and of a", ["--ignore-common"]],
+  ] as Array<[string, string, string[]]>) {
+    it(`reports no words for ${name}`, async () => {
+      const file = tempFile(content);
+      const c = capture();
+      expect(await run([file, ...extra], c.io)).toBe(0);
+      expect(c.out).toEqual([]);
+      expect(c.err).toEqual([`No words found in ${file}`]);
+    });
+  }
+
+  it("prints stop words without --ignore-common, no message", async () => {
+    const file = tempFile("the and of a");
+    const c = capture();
+    expect(await run([file], c.io)).toBe(0);
+    expect(c.out).toEqual(["a: 1", "and: 1", "of: 1", "the: 1"]);
+    expect(c.err).toEqual([]);
+  });
+
+  for (const [name, content, extra] of [
+    ["empty file", "", []],
+    ["stop-words-only file with --ignore-common", "the and of a", ["--ignore-common"]],
+  ] as Array<[string, string, string[]]>) {
+    it(`prints [] with --json and no message for ${name}`, async () => {
+      const file = tempFile(content);
+      const c = capture();
+      expect(await run([file, "--json", ...extra], c.io)).toBe(0);
+      expect(c.out).toEqual(["[]"]);
+      expect(c.err).toEqual([]);
+    });
+  }
+
+  it("--top 0 on file with words prints nothing, no message", async () => {
+    const file = tempFile("cat dog");
+    const c = capture();
+    expect(await run([file, "--top", "0"], c.io)).toBe(0);
+    expect(c.out).toEqual([]);
+    expect(c.err).toEqual([]);
+  });
+
   it("exits 1 with error for missing file", async () => {
     const c = capture();
     expect(await run([join(tmpdir(), "nope-wordfreq-xyz.txt")], c.io)).toBe(1);
