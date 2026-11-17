@@ -62,15 +62,76 @@ describe("parseArgs", () => {
   });
 });
 
-function capture() {
+function capture(stdinText = "") {
   const out: string[] = [];
   const err: string[] = [];
   return {
     out,
     err,
-    io: { out: (l: string) => out.push(l), err: (l: string) => err.push(l) },
+    io: {
+      out: (l: string) => out.push(l),
+      err: (l: string) => err.push(l),
+      in: async () => stdinText,
+    },
   };
 }
+
+describe("stdin", () => {
+  it("parseArgs accepts - as file", () => {
+    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false });
+  });
+
+  it("USAGE mentions -", () => {
+    expect(USAGE).toContain("<file|->");
+  });
+
+  it("reads text from stdin with -", async () => {
+    const c = capture("The cat. the dog, THE bird! cat dog");
+    expect(await run(["-", "--top", "2"], c.io)).toBe(0);
+    expect(c.out).toEqual(["the: 3", "cat: 2"]);
+  });
+
+  it("prints JSON from stdin", async () => {
+    const c = capture("The cat. the dog, THE bird! cat dog");
+    expect(await run(["-", "--json"], c.io)).toBe(0);
+    expect(JSON.parse(c.out[0])).toEqual([
+      { word: "the", count: 3 },
+      { word: "cat", count: 2 },
+      { word: "dog", count: 2 },
+      { word: "bird", count: 1 },
+    ]);
+  });
+
+  it("applies --ignore-common to stdin", async () => {
+    const c = capture("The cat and the dog of a cat to the bird");
+    expect(await run(["-", "--ignore-common", "--top", "2"], c.io)).toBe(0);
+    expect(c.out).toEqual(["cat: 2", "bird: 1"]);
+  });
+
+  it("handles empty stdin", async () => {
+    const t = capture("");
+    expect(await run(["-"], t.io)).toBe(0);
+    expect(t.out).toEqual([]);
+    const j = capture("");
+    expect(await run(["-", "--json"], j.io)).toBe(0);
+    expect(j.out).toEqual(["[]"]);
+  });
+
+  it("does not read stdin for a file argument", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "wordfreq-")), "in.txt");
+    writeFileSync(file, "cat dog");
+    const out: string[] = [];
+    const io = {
+      out: (l: string) => out.push(l),
+      err: () => {},
+      in: async (): Promise<string> => {
+        throw new Error("stdin should not be read");
+      },
+    };
+    expect(await run([file], io)).toBe(0);
+    expect(out).toEqual(["cat: 1", "dog: 1"]);
+  });
+});
 
 describe("run", () => {
   it("prints top words from file", async () => {
