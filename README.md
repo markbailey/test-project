@@ -25,6 +25,7 @@ pnpm runs the script from inside `apps/wordfreq`, so a relative `<file>` path is
 Options:
 
 - `--top N`: show the N most frequent words. N must be an integer of 0 or more. Default is 10.
+- `--min-count N`: hide words seen fewer than N times, applied before `--top`. N must be an integer of 1 or more. Default is 1.
 - `--ignore-common`: drop the words in `STOP_WORDS` (see below).
 - `--json`: print a JSON array of `{word, count}` objects instead of `word: count` lines.
 
