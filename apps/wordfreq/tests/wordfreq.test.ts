@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TOP, parseArgs, run, topWords } from "../src/wordfreq.ts";
+import { DEFAULT_TOP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
 
 describe("topWords", () => {
   it("sorts by count descending", () => {
@@ -147,5 +147,43 @@ describe("run", () => {
     const c = capture();
     expect(await run([], c.io)).toBe(1);
     expect(c.err.join("\n")).toMatch(/Usage/);
+  });
+
+  function expectHelp(c: ReturnType<typeof capture>) {
+    const text = c.out.join("\n");
+    expect(text.startsWith(USAGE)).toBe(true);
+    const lines = text.split("\n");
+    for (const opt of ["--top N", "--ignore-common", "--json"]) {
+      expect(lines.slice(1).filter((l) => l.includes(opt))).toHaveLength(1);
+    }
+    expect(c.err).toEqual([]);
+  }
+
+  it("prints help with --help", async () => {
+    const c = capture();
+    expect(await run(["--help"], c.io)).toBe(0);
+    expectHelp(c);
+  });
+
+  it("prints same help with -h", async () => {
+    const a = capture();
+    const b = capture();
+    expect(await run(["-h"], a.io)).toBe(0);
+    expect(await run(["--help"], b.io)).toBe(0);
+    expectHelp(a);
+    expect(a.out).toEqual(b.out);
+  });
+
+  it("help wins wherever the flag sits, without reading a file", async () => {
+    const missing = join(tmpdir(), "nope-wordfreq-help.txt");
+    for (const argv of [
+      [missing, "--top", "3", "--help"],
+      ["--json", "-h", missing],
+      ["--ignore-common", "--help"],
+    ]) {
+      const c = capture();
+      expect(await run(argv, c.io)).toBe(0);
+      expectHelp(c);
+    }
   });
 });
