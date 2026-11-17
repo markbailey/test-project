@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json]";
+  "Usage: wordfreq <file|-> [--top N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -11,6 +11,7 @@ export const HELP = [
   "  --ignore-common  skip common stop words",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --json           print results as JSON",
+  "  --version        print the version",
   "  -h, --help       show this help",
 ].join("\n");
 
@@ -84,6 +85,11 @@ export interface Io {
 export async function run(argv: string[], io: Io): Promise<number> {
   if (argv.includes("--help") || argv.includes("-h")) {
     io.out(HELP);
+    return 0;
+  }
+  if (argv.includes("--version")) {
+    const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    io.out(pkg.version);
     return 0;
   }
   let args: Args;
