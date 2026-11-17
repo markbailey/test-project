@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -11,6 +11,7 @@ export const HELP = [
   "  --ignore-common  skip common stop words",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --json           print results as JSON",
+  "  --csv            print results as CSV",
   "  --version        print the version",
   "  -h, --help       show this help",
 ].join("\n");
@@ -20,8 +21,13 @@ export interface Args {
   top: number;
   ignoreCommon: boolean;
   json: boolean;
+  csv: boolean;
   ngram: number;
   stopWordsFile?: string;
+}
+
+export function csvField(word: string): string {
+  return /[,"]/.test(word) ? `"${word.replace(/"/g, '""')}"` : word;
 }
 
 export function parseArgs(argv: string[]): Args {
@@ -29,6 +35,7 @@ export function parseArgs(argv: string[]): Args {
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
   let json = false;
+  let csv = false;
   let ngram = 1;
   let stopWordsFile: string | undefined;
   for (let i = 0; i < argv.length; i++) {
@@ -41,6 +48,8 @@ export function parseArgs(argv: string[]): Args {
       ignoreCommon = true;
     } else if (arg === "--json") {
       json = true;
+    } else if (arg === "--csv") {
+      csv = true;
     } else if (arg === "--top") {
       const value = argv[++i];
       const n = Number(value);
@@ -61,10 +70,11 @@ export function parseArgs(argv: string[]): Args {
       throw new Error(`Unexpected argument: ${arg}`);
     }
   }
+  if (json && csv) throw new Error("--csv and --json cannot be used together");
   if (file === undefined) throw new Error("Missing <file> argument");
   return stopWordsFile === undefined
-    ? { file, top, ignoreCommon, json, ngram }
-    : { file, top, ignoreCommon, json, ngram, stopWordsFile };
+    ? { file, top, ignoreCommon, json, csv, ngram }
+    : { file, top, ignoreCommon, json, csv, ngram, stopWordsFile };
 }
 
 export function topWords(
@@ -136,13 +146,18 @@ export async function run(argv: string[], io: Io): Promise<number> {
       Object.entries(counts).filter(([gram]) => !ngramIsAllStopWords(gram, stopWords)),
     );
   }
-  if (!args.json && Object.keys(counts).length === 0) {
+  if (!args.json && !args.csv && Object.keys(counts).length === 0) {
     io.err(`No words found in ${args.file}`);
     return 0;
   }
   const top = topWords(counts, args.top);
   if (args.json) {
     io.out(JSON.stringify(top.map(([word, count]) => ({ word, count }))));
+    return 0;
+  }
+  if (args.csv) {
+    io.out("word,count");
+    for (const [word, count] of top) io.out(`${csvField(word)},${count}`);
     return 0;
   }
   for (const [word, count] of top) {
