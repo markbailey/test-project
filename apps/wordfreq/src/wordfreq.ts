@@ -1,12 +1,13 @@
 import { readFile } from "node:fs/promises";
-import { countWords, filterStopWords } from "@test-project/wordcount";
+import { countWords, filterStopWords, STOP_WORDS } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file|-> [--top N] [--ignore-common] [--json]";
+export const USAGE = "Usage: wordfreq <file|-> [--top N] [--ignore-common] [--stop-words <path>] [--json]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
   "  --ignore-common  skip common stop words",
+  "  --stop-words <path>  skip words listed in a file, one per line",
   "  --json           print results as JSON",
   "  -h, --help       show this help",
 ].join("\n");
@@ -16,6 +17,7 @@ export interface Args {
   top: number;
   ignoreCommon: boolean;
   json: boolean;
+  stopWordsFile?: string;
 }
 
 export function parseArgs(argv: string[]): Args {
@@ -23,9 +25,14 @@ export function parseArgs(argv: string[]): Args {
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
   let json = false;
+  let stopWordsFile: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--ignore-common") {
+    if (arg === "--stop-words") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("Missing --stop-words value");
+      stopWordsFile = value;
+    } else if (arg === "--ignore-common") {
       ignoreCommon = true;
     } else if (arg === "--json") {
       json = true;
@@ -43,7 +50,9 @@ export function parseArgs(argv: string[]): Args {
     }
   }
   if (file === undefined) throw new Error("Missing <file> argument");
-  return { file, top, ignoreCommon, json };
+  return stopWordsFile === undefined
+    ? { file, top, ignoreCommon, json }
+    : { file, top, ignoreCommon, json, stopWordsFile };
 }
 
 export function topWords(
@@ -84,8 +93,29 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return 1;
     }
   }
+  let fileStopWords: Set<string> | undefined;
+  if (args.stopWordsFile !== undefined) {
+    let content: string;
+    try {
+      content = await readFile(args.stopWordsFile, "utf8");
+    } catch {
+      io.err(`Error: cannot read stop words file: ${args.stopWordsFile}`);
+      return 1;
+    }
+    fileStopWords = new Set(
+      content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"))
+        .map((line) => line.toLowerCase()),
+    );
+  }
   let counts = countWords(text);
-  if (args.ignoreCommon) counts = filterStopWords(counts);
+  if (fileStopWords) {
+    counts = filterStopWords(counts, args.ignoreCommon ? new Set([...STOP_WORDS, ...fileStopWords]) : fileStopWords);
+  } else if (args.ignoreCommon) {
+    counts = filterStopWords(counts);
+  }
   if (!args.json && Object.keys(counts).length === 0) {
     io.err(`No words found in ${args.file}`);
     return 0;

@@ -16,6 +16,14 @@ describe("filterStopWords", () => {
     expect(filterStopWords({})).toEqual({});
   });
 
+  it("uses a custom stop-word set instead of the built-in one", () => {
+    expect(filterStopWords({ the: 2, cat: 1, dog: 1 }, new Set(["cat"]))).toEqual({ the: 2, dog: 1 });
+  });
+
+  it("keeps all counts with an empty set", () => {
+    expect(filterStopWords({ the: 2, cat: 1 }, new Set())).toEqual({ the: 2, cat: 1 });
+  });
+
   it("exposes common stop words", () => {
     for (const w of ["the", "a", "and", "of", "to"]) expect(STOP_WORDS.has(w)).toBe(true);
   });
