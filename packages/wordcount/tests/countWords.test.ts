@@ -16,6 +16,14 @@ describe("filterStopWords", () => {
     expect(filterStopWords({})).toEqual({});
   });
 
+  it("uses a custom stop-word set instead of the built-in one", () => {
+    expect(filterStopWords({ the: 2, cat: 1, dog: 1 }, new Set(["cat"]))).toEqual({ the: 2, dog: 1 });
+  });
+
+  it("keeps all counts with an empty set", () => {
+    expect(filterStopWords({ the: 2, cat: 1 }, new Set())).toEqual({ the: 2, cat: 1 });
+  });
+
   it("exposes common stop words", () => {
     for (const w of ["the", "a", "and", "of", "to"]) expect(STOP_WORDS.has(w)).toBe(true);
   });
@@ -75,5 +83,38 @@ describe("countWords", () => {
     expect(
       countWords(`"Don't," she said -- (it's) 'quoted' { The THE the... don't! ... it's`),
     ).toEqual({ "don't": 2, she: 1, said: 1, "it's": 2, quoted: 1, the: 3 });
+  });
+
+  it("splits on em dash", () => {
+    expect(countWords("well—known")).toEqual({ well: 1, known: 1 });
+  });
+
+  it("splits on en dash", () => {
+    expect(countWords("pages 10–20")).toEqual({ pages: 1, "10": 1, "20": 1 });
+  });
+
+  it("splits on slash", () => {
+    expect(countWords("and/or")).toEqual({ and: 1, or: 1 });
+  });
+
+  it("splits on double hyphen", () => {
+    expect(countWords("yes--no")).toEqual({ yes: 1, no: 1 });
+  });
+
+  it("keeps single hyphen inside a word", () => {
+    expect(countWords("well-known")).toEqual({ "well-known": 1 });
+  });
+
+  it("handles a sentence mixing all separators", () => {
+    expect(countWords("Well-known—and/or DON'T--(maybe) pages 10–20.")).toEqual({
+      "well-known": 1,
+      and: 1,
+      or: 1,
+      "don't": 1,
+      maybe: 1,
+      pages: 1,
+      "10": 1,
+      "20": 1,
+    });
   });
 });
