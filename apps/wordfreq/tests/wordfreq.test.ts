@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TOP, HELP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
+import { csvField, DEFAULT_TOP, HELP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
 
 describe("topWords", () => {
   it("sorts by count descending", () => {
@@ -38,28 +38,36 @@ describe("topWords", () => {
 describe("parseArgs", () => {
   it("defaults top to 10", () => {
     expect(DEFAULT_TOP).toBe(10);
-    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 1, minCount: 1 });
   });
 
   it("parses --top before or after file", () => {
-    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, ngram: 1, minCount: 1 });
-    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false, ngram: 1, minCount: 1 });
   });
 
   it("parses --ignore-common", () => {
-    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false, csv: false, ngram: 1, minCount: 1 });
   });
 
   it("parses --json", () => {
-    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true, ngram: 1, minCount: 1 });
+    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true, csv: false, ngram: 1, minCount: 1 });
+  });
+
+  it("parses --csv", () => {
+    expect(parseArgs(["--csv", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: true, ngram: 1, minCount: 1 });
+  });
+
+  it("rejects --csv with --json", () => {
+    expect(() => parseArgs(["f.txt", "--csv", "--json"])).toThrow("--csv and --json cannot be used together");
   });
 
   it("parses --stop-words before or after file", () => {
     expect(parseArgs(["f.txt", "--stop-words", "s.txt"])).toEqual({
-      file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1, minCount: 1, stopWordsFile: "s.txt",
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 1, minCount: 1, stopWordsFile: "s.txt",
     });
     expect(parseArgs(["--stop-words", "s.txt", "f.txt"])).toEqual({
-      file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1, minCount: 1, stopWordsFile: "s.txt",
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 1, minCount: 1, stopWordsFile: "s.txt",
     });
   });
 
@@ -73,8 +81,8 @@ describe("parseArgs", () => {
   });
 
   it("parses --ngram before or after file", () => {
-    expect(parseArgs(["f.txt", "--ngram", "2"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 2, minCount: 1 });
-    expect(parseArgs(["--ngram", "5", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 5, minCount: 1 });
+    expect(parseArgs(["f.txt", "--ngram", "2"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 2, minCount: 1 });
+    expect(parseArgs(["--ngram", "5", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 5, minCount: 1 });
   });
 
   it("rejects bad --ngram values", () => {
@@ -82,6 +90,21 @@ describe("parseArgs", () => {
     for (const v of ["0", "6", "abc", "2.5", "-1"]) {
       expect(() => parseArgs(["f.txt", "--ngram", v])).toThrow(`Invalid --ngram value: ${v}`);
     }
+  });
+});
+
+describe("csvField", () => {
+  it("leaves plain words unquoted", () => {
+    expect(csvField("cat")).toBe("cat");
+    expect(csvField("don't")).toBe("don't");
+  });
+
+  it("quotes words with commas", () => {
+    expect(csvField("a,b")).toBe('"a,b"');
+  });
+
+  it("quotes and doubles inner quotes", () => {
+    expect(csvField('say"hi')).toBe('"say""hi"');
   });
 });
 
@@ -137,7 +160,7 @@ describe("--ngram", () => {
 });
 
 describe("--min-count", () => {
-  const base = { file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1 };
+  const base = { file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 1 };
 
   it("parseArgs defaults minCount to 1", () => {
     expect(parseArgs(["f.txt"]).minCount).toBe(1);
@@ -197,6 +220,12 @@ describe("--min-count", () => {
     expect(JSON.parse(c.out[0])).toEqual([{ word: "cat", count: 3 }]);
   });
 
+  it("filters --csv output", async () => {
+    const c = capture("cat cat dog");
+    expect(await run(["-", "--min-count", "2", "--csv"], c.io)).toBe(0);
+    expect(c.out).toEqual(["word,count", "cat,2"]);
+  });
+
   it("prints [] with --json when no word reaches threshold", async () => {
     const c = capture("cat dog bird");
     expect(await run(["-", "--min-count", "2", "--json"], c.io)).toBe(0);
@@ -220,7 +249,7 @@ function capture(stdinText = "") {
 
 describe("stdin", () => {
   it("parseArgs accepts - as file", () => {
-    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false, csv: false, ngram: 1, minCount: 1 });
   });
 
   it("USAGE mentions -", () => {
@@ -381,6 +410,52 @@ describe("run", () => {
     });
   }
 
+  it("prints CSV with --csv in text-output order", async () => {
+    const file = tempFile("The cat. the dog, THE bird! cat dog");
+    const c = capture();
+    expect(await run([file, "--csv"], c.io)).toBe(0);
+    expect(c.out).toEqual(["word,count", "the,3", "cat,2", "dog,2", "bird,1"]);
+    expect(c.err).toEqual([]);
+  });
+
+  it("combines --csv with --top and --ignore-common in any order", async () => {
+    const file = tempFile("The cat and the dog of a cat to the bird");
+    for (const argv of [
+      ["--csv", file, "--ignore-common", "--top", "2"],
+      ["--top", "2", "--ignore-common", file, "--csv"],
+    ]) {
+      const c = capture();
+      expect(await run(argv, c.io)).toBe(0);
+      expect(c.out).toEqual(["word,count", "cat,2", "bird,1"]);
+    }
+  });
+
+  for (const [name, content, extra] of [
+    ["empty file", "", []],
+    ["stop-words-only file with --ignore-common", "the and of a", ["--ignore-common"]],
+  ] as Array<[string, string, string[]]>) {
+    it(`prints only header with --csv and no message for ${name}`, async () => {
+      const file = tempFile(content);
+      const c = capture();
+      expect(await run([file, "--csv", ...extra], c.io)).toBe(0);
+      expect(c.out).toEqual(["word,count"]);
+      expect(c.err).toEqual([]);
+    });
+  }
+
+  it("exits 1 when --csv and --json are combined, either order", async () => {
+    const file = tempFile("cat dog");
+    for (const argv of [
+      [file, "--csv", "--json"],
+      ["--json", file, "--csv"],
+    ]) {
+      const c = capture();
+      expect(await run(argv, c.io)).toBe(1);
+      expect(c.err).toEqual([`--csv and --json cannot be used together\n${USAGE}`]);
+      expect(c.out).toEqual([]);
+    }
+  });
+
   it("--top 0 on file with words prints nothing, no message", async () => {
     const file = tempFile("cat dog");
     const c = capture();
@@ -468,7 +543,7 @@ describe("run", () => {
     const text = c.out.join("\n");
     expect(text.startsWith(USAGE)).toBe(true);
     const lines = text.split("\n");
-    for (const opt of ["--top N", "--ignore-common", "--json", "--stop-words"]) {
+    for (const opt of ["--top N", "--ignore-common", "--json", "--stop-words", "--csv"]) {
       expect(lines.slice(1).filter((l) => l.includes(opt))).toHaveLength(1);
     }
     expect(c.err).toEqual([]);
@@ -495,6 +570,7 @@ describe("run", () => {
       [missing, "--top", "3", "--help"],
       ["--json", "-h", missing],
       ["--ignore-common", "--help"],
+      ["--csv", "--json", "--help", missing],
     ]) {
       const c = capture();
       expect(await run(argv, c.io)).toBe(0);
