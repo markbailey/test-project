@@ -81,6 +81,10 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
   let counts = countWords(text);
   if (args.ignoreCommon) counts = filterStopWords(counts);
+  if (!args.json && Object.keys(counts).length === 0) {
+    io.err(`No words found in ${args.file}`);
+    return 0;
+  }
   const top = topWords(counts, args.top);
   if (args.json) {
     io.out(JSON.stringify(top.map(([word, count]) => ({ word, count }))));
