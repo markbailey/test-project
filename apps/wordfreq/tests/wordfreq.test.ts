@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TOP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
+import { csvField, DEFAULT_TOP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
 
 describe("topWords", () => {
   it("sorts by count descending", () => {
@@ -37,20 +37,28 @@ describe("topWords", () => {
 describe("parseArgs", () => {
   it("defaults top to 10", () => {
     expect(DEFAULT_TOP).toBe(10);
-    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false });
+    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false });
   });
 
   it("parses --top before or after file", () => {
-    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false });
-    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false });
+    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false });
+    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false });
   });
 
   it("parses --ignore-common", () => {
-    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false });
+    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false, csv: false });
   });
 
   it("parses --json", () => {
-    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true });
+    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true, csv: false });
+  });
+
+  it("parses --csv", () => {
+    expect(parseArgs(["--csv", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: true });
+  });
+
+  it("rejects --csv with --json", () => {
+    expect(() => parseArgs(["f.txt", "--csv", "--json"])).toThrow("--csv and --json cannot be used together");
   });
 
   it("rejects bad input", () => {
@@ -59,6 +67,21 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["f.txt", "--top", "abc"])).toThrow(/--top/);
     expect(() => parseArgs(["f.txt", "--top", "-1"])).toThrow(/--top/);
     expect(() => parseArgs(["a", "b"])).toThrow(/Unexpected/);
+  });
+});
+
+describe("csvField", () => {
+  it("leaves plain words unquoted", () => {
+    expect(csvField("cat")).toBe("cat");
+    expect(csvField("don't")).toBe("don't");
+  });
+
+  it("quotes words with commas", () => {
+    expect(csvField("a,b")).toBe('"a,b"');
+  });
+
+  it("quotes and doubles inner quotes", () => {
+    expect(csvField('say"hi')).toBe('"say""hi"');
   });
 });
 
@@ -178,6 +201,52 @@ describe("run", () => {
     });
   }
 
+  it("prints CSV with --csv in text-output order", async () => {
+    const file = tempFile("The cat. the dog, THE bird! cat dog");
+    const c = capture();
+    expect(await run([file, "--csv"], c.io)).toBe(0);
+    expect(c.out).toEqual(["word,count", "the,3", "cat,2", "dog,2", "bird,1"]);
+    expect(c.err).toEqual([]);
+  });
+
+  it("combines --csv with --top and --ignore-common in any order", async () => {
+    const file = tempFile("The cat and the dog of a cat to the bird");
+    for (const argv of [
+      ["--csv", file, "--ignore-common", "--top", "2"],
+      ["--top", "2", "--ignore-common", file, "--csv"],
+    ]) {
+      const c = capture();
+      expect(await run(argv, c.io)).toBe(0);
+      expect(c.out).toEqual(["word,count", "cat,2", "bird,1"]);
+    }
+  });
+
+  for (const [name, content, extra] of [
+    ["empty file", "", []],
+    ["stop-words-only file with --ignore-common", "the and of a", ["--ignore-common"]],
+  ] as Array<[string, string, string[]]>) {
+    it(`prints only header with --csv and no message for ${name}`, async () => {
+      const file = tempFile(content);
+      const c = capture();
+      expect(await run([file, "--csv", ...extra], c.io)).toBe(0);
+      expect(c.out).toEqual(["word,count"]);
+      expect(c.err).toEqual([]);
+    });
+  }
+
+  it("exits 1 when --csv and --json are combined, either order", async () => {
+    const file = tempFile("cat dog");
+    for (const argv of [
+      [file, "--csv", "--json"],
+      ["--json", file, "--csv"],
+    ]) {
+      const c = capture();
+      expect(await run(argv, c.io)).toBe(1);
+      expect(c.err).toEqual([`--csv and --json cannot be used together\n${USAGE}`]);
+      expect(c.out).toEqual([]);
+    }
+  });
+
   it("--top 0 on file with words prints nothing, no message", async () => {
     const file = tempFile("cat dog");
     const c = capture();
@@ -203,7 +272,7 @@ describe("run", () => {
     const text = c.out.join("\n");
     expect(text.startsWith(USAGE)).toBe(true);
     const lines = text.split("\n");
-    for (const opt of ["--top N", "--ignore-common", "--json"]) {
+    for (const opt of ["--top N", "--ignore-common", "--json", "--csv"]) {
       expect(lines.slice(1).filter((l) => l.includes(opt))).toHaveLength(1);
     }
     expect(c.err).toEqual([]);
@@ -230,6 +299,7 @@ describe("run", () => {
       [missing, "--top", "3", "--help"],
       ["--json", "-h", missing],
       ["--ignore-common", "--help"],
+      ["--csv", "--json", "--help", missing],
     ]) {
       const c = capture();
       expect(await run(argv, c.io)).toBe(0);

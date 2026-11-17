@@ -2,12 +2,13 @@ import { readFile } from "node:fs/promises";
 import { countWords, filterStopWords } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json]";
+export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json] [--csv]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
   "  --ignore-common  skip common stop words",
   "  --json           print results as JSON",
+  "  --csv            print results as CSV",
   "  -h, --help       show this help",
 ].join("\n");
 
@@ -16,6 +17,11 @@ export interface Args {
   top: number;
   ignoreCommon: boolean;
   json: boolean;
+  csv: boolean;
+}
+
+export function csvField(word: string): string {
+  return /[,"]/.test(word) ? `"${word.replace(/"/g, '""')}"` : word;
 }
 
 export function parseArgs(argv: string[]): Args {
@@ -23,12 +29,15 @@ export function parseArgs(argv: string[]): Args {
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
   let json = false;
+  let csv = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--ignore-common") {
       ignoreCommon = true;
     } else if (arg === "--json") {
       json = true;
+    } else if (arg === "--csv") {
+      csv = true;
     } else if (arg === "--top") {
       const value = argv[++i];
       const n = Number(value);
@@ -42,8 +51,9 @@ export function parseArgs(argv: string[]): Args {
       throw new Error(`Unexpected argument: ${arg}`);
     }
   }
+  if (json && csv) throw new Error("--csv and --json cannot be used together");
   if (file === undefined) throw new Error("Missing <file> argument");
-  return { file, top, ignoreCommon, json };
+  return { file, top, ignoreCommon, json, csv };
 }
 
 export function topWords(
@@ -81,13 +91,18 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
   let counts = countWords(text);
   if (args.ignoreCommon) counts = filterStopWords(counts);
-  if (!args.json && Object.keys(counts).length === 0) {
+  if (!args.json && !args.csv && Object.keys(counts).length === 0) {
     io.err(`No words found in ${args.file}`);
     return 0;
   }
   const top = topWords(counts, args.top);
   if (args.json) {
     io.out(JSON.stringify(top.map(([word, count]) => ({ word, count }))));
+    return 0;
+  }
+  if (args.csv) {
+    io.out("word,count");
+    for (const [word, count] of top) io.out(`${csvField(word)},${count}`);
     return 0;
   }
   for (const [word, count] of top) {
