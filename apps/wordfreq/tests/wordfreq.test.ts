@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TOP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
+import { DEFAULT_TOP, HELP, parseArgs, run, topWords, USAGE } from "../src/wordfreq.ts";
 
 describe("topWords", () => {
   it("sorts by count descending", () => {
@@ -37,28 +37,28 @@ describe("topWords", () => {
 describe("parseArgs", () => {
   it("defaults top to 10", () => {
     expect(DEFAULT_TOP).toBe(10);
-    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false });
+    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1 });
   });
 
   it("parses --top before or after file", () => {
-    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false });
-    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false });
+    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, ngram: 1 });
+    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, ngram: 1 });
   });
 
   it("parses --ignore-common", () => {
-    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false });
+    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false, ngram: 1 });
   });
 
   it("parses --json", () => {
-    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true });
+    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true, ngram: 1 });
   });
 
   it("parses --stop-words before or after file", () => {
     expect(parseArgs(["f.txt", "--stop-words", "s.txt"])).toEqual({
-      file: "f.txt", top: 10, ignoreCommon: false, json: false, stopWordsFile: "s.txt",
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1, stopWordsFile: "s.txt",
     });
     expect(parseArgs(["--stop-words", "s.txt", "f.txt"])).toEqual({
-      file: "f.txt", top: 10, ignoreCommon: false, json: false, stopWordsFile: "s.txt",
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 1, stopWordsFile: "s.txt",
     });
   });
 
@@ -69,6 +69,69 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["f.txt", "--top", "abc"])).toThrow(/--top/);
     expect(() => parseArgs(["f.txt", "--top", "-1"])).toThrow(/--top/);
     expect(() => parseArgs(["a", "b"])).toThrow(/Unexpected/);
+  });
+
+  it("parses --ngram before or after file", () => {
+    expect(parseArgs(["f.txt", "--ngram", "2"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 2 });
+    expect(parseArgs(["--ngram", "5", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, ngram: 5 });
+  });
+
+  it("rejects bad --ngram values", () => {
+    expect(() => parseArgs(["f.txt", "--ngram"])).toThrow("Invalid --ngram value: (missing)");
+    for (const v of ["0", "6", "abc", "2.5", "-1"]) {
+      expect(() => parseArgs(["f.txt", "--ngram", v])).toThrow(`Invalid --ngram value: ${v}`);
+    }
+  });
+});
+
+describe("--ngram", () => {
+  it("prints top bigrams from stdin", async () => {
+    const c = capture("Of the people, of the land. The end of the story");
+    expect(await run(["-", "--ngram", "2", "--top", "3"], c.io)).toBe(0);
+    expect(c.out).toEqual(["of the: 3", "end of: 1", "people of: 1"]);
+  });
+
+  it("prints bigrams as JSON", async () => {
+    const c = capture("a b. a b c");
+    expect(await run(["-", "--ngram", "2", "--json"], c.io)).toBe(0);
+    expect(JSON.parse(c.out[0])).toEqual([
+      { word: "a b", count: 2 },
+      { word: "b c", count: 1 },
+    ]);
+  });
+
+  it("drops only all-stop-word n-grams with --ignore-common", async () => {
+    const c = capture("Of the people, of the land. The end of the story");
+    expect(await run(["-", "--ngram", "2", "--ignore-common"], c.io)).toBe(0);
+    expect(c.out).toEqual(["end of: 1", "people of: 1", "the end: 1", "the land: 1", "the people: 1", "the story: 1"]);
+  });
+
+  it("reports no words when no n-grams remain", async () => {
+    const t = capture("of the. in a");
+    expect(await run(["-", "--ngram", "2", "--ignore-common"], t.io)).toBe(0);
+    expect(t.out).toEqual([]);
+    expect(t.err).toEqual(["No words found in -"]);
+    const j = capture("hi there");
+    expect(await run(["-", "--ngram", "3", "--json"], j.io)).toBe(0);
+    expect(j.out).toEqual(["[]"]);
+  });
+
+  for (const v of ["0", "abc"]) {
+    it(`exits 1 on --ngram ${v}`, async () => {
+      const c = capture("cat dog");
+      expect(await run(["-", "--ngram", v], c.io)).toBe(1);
+      expect(c.err.join("\n")).toContain(`Invalid --ngram value: ${v}`);
+      expect(c.err.join("\n")).toContain(USAGE);
+      expect(c.out).toEqual([]);
+    });
+  }
+
+  it("USAGE and HELP list --ngram", () => {
+    expect(USAGE.startsWith("Usage: wordfreq <file|->")).toBe(true);
+    expect(USAGE).toContain("[--ngram N]");
+    const lines = HELP.split("\n").slice(1).filter((l) => l.includes("--ngram N"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/default 1/);
   });
 });
 
@@ -88,7 +151,7 @@ function capture(stdinText = "") {
 
 describe("stdin", () => {
   it("parseArgs accepts - as file", () => {
-    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false });
+    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false, ngram: 1 });
   });
 
   it("USAGE mentions -", () => {
