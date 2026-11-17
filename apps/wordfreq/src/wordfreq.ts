@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { countWords, filterStopWords } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
-export const USAGE = "Usage: wordfreq <file> [--top N] [--ignore-common] [--json]";
+export const USAGE = "Usage: wordfreq <file|-> [--top N] [--ignore-common] [--json]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -58,6 +58,7 @@ export function topWords(
 export interface Io {
   out: (line: string) => void;
   err: (line: string) => void;
+  in: () => Promise<string>;
 }
 
 export async function run(argv: string[], io: Io): Promise<number> {
@@ -73,11 +74,15 @@ export async function run(argv: string[], io: Io): Promise<number> {
     return 1;
   }
   let text: string;
-  try {
-    text = await readFile(args.file, "utf8");
-  } catch {
-    io.err(`Error: cannot read file: ${args.file}`);
-    return 1;
+  if (args.file === "-") {
+    text = await io.in();
+  } else {
+    try {
+      text = await readFile(args.file, "utf8");
+    } catch {
+      io.err(`Error: cannot read file: ${args.file}`);
+      return 1;
+    }
   }
   let counts = countWords(text);
   if (args.ignoreCommon) counts = filterStopWords(counts);
