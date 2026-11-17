@@ -3,7 +3,7 @@ const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
 export function countWords(text: string): Record<string, number> {
   const counts: Record<string, number> = {};
-  for (const token of text.split(/\s+/)) {
+  for (const token of text.split(/(?:\s|[—–\/]|-{2,})+/u)) {
     const word = token.replace(EDGE_PUNCTUATION, "").toLowerCase();
     if (!word) continue;
     counts[word] = Object.hasOwn(counts, word) ? counts[word] + 1 : 1;
