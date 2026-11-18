@@ -29,6 +29,9 @@ jobs:
       - name: Lint (eslint via turbo)
         run: pnpm lint
 
+      - name: Typecheck (tsc via turbo)
+        run: pnpm typecheck
+
       - name: Test (vitest via turbo)
         run: pnpm test
 

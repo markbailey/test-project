@@ -35,6 +35,7 @@ class TestCiWorkflow(unittest.TestCase):
         steps = [
             "pnpm install --frozen-lockfile",
             "pnpm lint",
+            "pnpm typecheck",
             "pnpm test",
             "python -m unittest discover -s tests",
             "pnpm build",

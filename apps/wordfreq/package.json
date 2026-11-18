@@ -9,7 +9,8 @@
   "scripts": {
     "lint": "eslint .",
     "start": "tsx src/cli.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
     "@test-project/wordcount": "workspace:*",

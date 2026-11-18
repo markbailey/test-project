@@ -14,8 +14,23 @@ class TestMonorepoSetup(unittest.TestCase):
         self.assertTrue(pkg["private"])
         self.assertTrue(pkg["packageManager"].startswith("pnpm@"))
         self.assertIn("turbo", pkg["devDependencies"])
-        for script in ("build", "dev", "lint", "test"):
+        for script in ("build", "dev", "lint", "test", "typecheck"):
             self.assertIn(f"turbo run {script}", pkg["scripts"][script])
+
+    def test_packages_typecheck(self):
+        for name in ("apps/wordfreq", "packages/wordcount"):
+            pkg = self.load_json(f"{name}/package.json")
+            self.assertEqual(pkg["scripts"]["typecheck"], "tsc --noEmit -p .", name)
+            for dep in ("typescript", "@types/node"):
+                self.assertIn(dep, pkg["devDependencies"], name)
+            tsconfig = self.load_json(f"{name}/tsconfig.json")
+            self.assertTrue(tsconfig["compilerOptions"]["strict"], name)
+            self.assertIn("tests", tsconfig["include"], name)
+
+    def test_lockfile_has_wordcount_types_node(self):
+        text = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
+        section = text.split("  packages/wordcount:", 1)[1].split("\npackages:", 1)[0]
+        self.assertIn("'@types/node':", section)
 
     def test_pnpm_workspace(self):
         text = (ROOT / "pnpm-workspace.yaml").read_text(encoding="utf-8")
@@ -31,7 +46,11 @@ class TestMonorepoSetup(unittest.TestCase):
         self.assertFalse(tasks["dev"]["cache"])
         self.assertTrue(tasks["dev"]["persistent"])
         self.assertIn("lint", tasks)
+        # root eslint config change must bust the lint cache
+        self.assertIn("$TURBO_DEFAULT$", tasks["lint"]["inputs"])
+        self.assertIn("$TURBO_ROOT$/eslint.config.js", tasks["lint"]["inputs"])
         self.assertIn("test", tasks)
+        self.assertEqual(tasks["typecheck"]["dependsOn"], ["^typecheck"])
 
     def test_eslint_setup(self):
         root = self.load_json("package.json")
