@@ -101,4 +101,4 @@ import { countWords, filterStopWords, STOP_WORDS } from "@test-project/wordcount
 
 ### Word rules
 
-Text is split on whitespace. Matching ignores case, and output is lowercase. Anything other than a letter or digit is stripped from both ends of a word. Punctuation inside a word, such as an apostrophe, is kept, so `don't` stays `don't`. A token that becomes empty after stripping is skipped.
+Text is normalized to Unicode NFC before splitting, so a word written with precomposed characters (`café` with U+00E9) and with combining marks (`e` + U+0301) counts as one word; output uses the NFC form. Text is split on whitespace. Matching ignores case, and output is lowercase. Anything other than a letter or digit is stripped from both ends of a word. Punctuation inside a word, such as an apostrophe, is kept, so `don't` stays `don't`. A token that becomes empty after stripping is skipped.
