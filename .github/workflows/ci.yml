@@ -26,6 +26,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck (tsc via turbo)
+        run: pnpm typecheck
+
       - name: Test (vitest via turbo)
         run: pnpm test
 
