@@ -33,6 +33,23 @@ class TestMonorepoSetup(unittest.TestCase):
         self.assertIn("lint", tasks)
         self.assertIn("test", tasks)
 
+    def test_eslint_setup(self):
+        root = self.load_json("package.json")
+        for dep in ("eslint", "@eslint/js", "typescript-eslint"):
+            self.assertIn(dep, root["devDependencies"])
+        self.assertTrue(root["devDependencies"]["eslint"].startswith("^9"))
+        config = (ROOT / "eslint.config.js").read_text(encoding="utf-8")
+        self.assertIn("js.configs.recommended", config)
+        self.assertIn("tseslint.configs.recommended", config)
+        self.assertNotIn("recommendedTypeChecked", config)
+        for ignored in ("node_modules", "dist", ".turbo", "coverage"):
+            self.assertIn(ignored, config)
+        for pkg in ("apps/wordfreq", "packages/wordcount"):
+            pkg_json = self.load_json(f"{pkg}/package.json")
+            self.assertEqual(pkg_json["scripts"]["lint"], "eslint .")
+            for dep in ("eslint", "@eslint/js", "typescript-eslint"):
+                self.assertNotIn(dep, pkg_json.get("devDependencies", {}))
+
     def test_workspace_dirs_exist(self):
         self.assertTrue((ROOT / "apps").is_dir())
         self.assertTrue((ROOT / "packages").is_dir())
