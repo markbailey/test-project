@@ -46,8 +46,28 @@ class TestMonorepoSetup(unittest.TestCase):
         self.assertFalse(tasks["dev"]["cache"])
         self.assertTrue(tasks["dev"]["persistent"])
         self.assertIn("lint", tasks)
+        # root eslint config change must bust the lint cache
+        self.assertIn("$TURBO_DEFAULT$", tasks["lint"]["inputs"])
+        self.assertIn("$TURBO_ROOT$/eslint.config.js", tasks["lint"]["inputs"])
         self.assertIn("test", tasks)
         self.assertEqual(tasks["typecheck"]["dependsOn"], ["^typecheck"])
+
+    def test_eslint_setup(self):
+        root = self.load_json("package.json")
+        for dep in ("eslint", "@eslint/js", "typescript-eslint"):
+            self.assertIn(dep, root["devDependencies"])
+        self.assertTrue(root["devDependencies"]["eslint"].startswith("^9"))
+        config = (ROOT / "eslint.config.js").read_text(encoding="utf-8")
+        self.assertIn("js.configs.recommended", config)
+        self.assertIn("tseslint.configs.recommended", config)
+        self.assertNotIn("recommendedTypeChecked", config)
+        for ignored in ("node_modules", "dist", ".turbo", "coverage"):
+            self.assertIn(ignored, config)
+        for pkg in ("apps/wordfreq", "packages/wordcount"):
+            pkg_json = self.load_json(f"{pkg}/package.json")
+            self.assertEqual(pkg_json["scripts"]["lint"], "eslint .")
+            for dep in ("eslint", "@eslint/js", "typescript-eslint"):
+                self.assertNotIn(dep, pkg_json.get("devDependencies", {}))
 
     def test_workspace_dirs_exist(self):
         self.assertTrue((ROOT / "apps").is_dir())

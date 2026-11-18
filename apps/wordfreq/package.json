@@ -7,6 +7,7 @@
     "wordfreq": "./bin/wordfreq.js"
   },
   "scripts": {
+    "lint": "eslint .",
     "start": "tsx src/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p ."

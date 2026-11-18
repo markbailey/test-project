@@ -10,12 +10,14 @@ pnpm install
 pnpm build   # turbo run build
 pnpm dev     # turbo run dev
 pnpm test    # turbo run test
+pnpm lint    # turbo run lint (ESLint, config in eslint.config.js)
 ```
 
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs:
 
+- `pnpm lint`: ESLint over `apps/wordfreq` and `packages/wordcount`
 - `pnpm test`: the vitest suites in `apps/wordfreq` and `packages/wordcount`
 - `python -m unittest discover -s tests`: the repo setup checks in `tests/`
 - `pnpm build`
