@@ -12,6 +12,17 @@ pnpm dev     # turbo run dev
 pnpm test    # turbo run test
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. It installs with `pnpm install --frozen-lockfile`, then runs:
+
+- `pnpm test`: the vitest suites in `apps/wordfreq` and `packages/wordcount`
+- `python -m unittest discover -s tests`: the repo setup checks in `tests/`
+- `pnpm build`
+- a smoke run of `node apps/wordfreq/bin/wordfreq.js --version` and `--help`
+
+Any failing step fails the job. A new push cancels the earlier run on the same ref.
+
 ## wordfreq
 
 CLI in `apps/wordfreq` that prints the most frequent words in a text file.
