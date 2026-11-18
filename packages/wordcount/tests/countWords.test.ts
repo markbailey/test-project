@@ -105,6 +105,14 @@ describe("countWords", () => {
     expect(countWords("well-known")).toEqual({ "well-known": 1 });
   });
 
+  it("counts NFC and NFD forms of a word as one, output in NFC", () => {
+    const nfc = "café";
+    const nfd = "café";
+    const counts = countWords(`${nfc} ${nfd}`);
+    expect(counts).toEqual({ [nfc]: 2 });
+    expect(Object.keys(counts)[0]).toBe(nfc);
+  });
+
   it("handles a sentence mixing all separators", () => {
     expect(countWords("Well-known—and/or DON'T--(maybe) pages 10–20.")).toEqual({
       "well-known": 1,

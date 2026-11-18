@@ -4,7 +4,7 @@ const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 // Words per sentence; a raw token ending in . ! or ? closes its sentence.
 function tokenizeSentences(text: string): string[][] {
   const sentences: string[][] = [[]];
-  for (const token of text.split(/(?:\s|[—–/]|-{2,})+/u)) {
+  for (const token of text.normalize("NFC").split(/(?:\s|[—–/]|-{2,})+/u)) {
     const word = token.replace(EDGE_PUNCTUATION, "").toLowerCase();
     if (word) sentences[sentences.length - 1].push(word);
     if (/[.!?]$/u.test(token)) sentences.push([]);
