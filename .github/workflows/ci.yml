@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version comes from packageManager in package.json
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Test (vitest via turbo)
+        run: pnpm test
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Test (python unittest)
+        run: python -m unittest discover -s tests
+
+      - name: Build
+        run: pnpm build
+
+      - name: Smoke run wordfreq CLI
+        run: |
+          node apps/wordfreq/bin/wordfreq.js --version
+          node apps/wordfreq/bin/wordfreq.js --help
