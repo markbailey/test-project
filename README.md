@@ -37,7 +37,7 @@ pnpm runs the script from inside `apps/wordfreq`, so a relative `<file>` path is
 
 Options:
 
-- `--top N`: show the N most frequent words. N must be an integer of 0 or more. Default is 10.
+- `--top N`, `-n N`: show the N most frequent words. N must be an integer of 0 or more. Default is 10.
 - `--min-count N`: hide words seen fewer than N times, applied before `--top`. N must be an integer of 1 or more. Default is 1.
 - `--sort count|alpha`: `count` (default) sorts by count, highest first, ties alphabetical. `alpha` sorts by word, A–Z. `--min-count` and `--top` apply after sorting. Any other value prints `Invalid --sort value: <v>` plus usage to stderr and exits 1.
 - `--ignore-common`: drop the words in `STOP_WORDS` (see below); matched case-insensitively.
