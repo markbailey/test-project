@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -13,6 +13,7 @@ export const HELP = [
   "  --ignore-common  skip common stop words",
   "  --case-sensitive  count words with different capitalisation separately",
   "  --stop-words <path>  skip words listed in a file, one per line",
+  "  --exclude <words>  drop comma-separated words from the output (ignores case)",
   "  --json           print results as JSON",
   "  --csv            print results as CSV",
   "  --markdown       print results as a Markdown table",
@@ -34,6 +35,7 @@ export interface Args {
   minCount: number;
   sort: SortMode;
   stopWordsFile?: string;
+  exclude?: Set<string>;
 }
 
 export function csvField(word: string): string {
@@ -56,9 +58,19 @@ export function parseArgs(argv: string[]): Args {
   let minCount = 1;
   let sort: SortMode = "count";
   let stopWordsFile: string | undefined;
+  let exclude: Set<string> | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--stop-words") {
+    if (arg === "--exclude") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("Missing value for --exclude");
+      exclude = new Set(
+        value
+          .split(",")
+          .filter((w) => w !== "")
+          .map((w) => w.toLowerCase()),
+      );
+    } else if (arg === "--stop-words") {
       const value = argv[++i];
       if (value === undefined) throw new Error("Missing --stop-words value");
       stopWordsFile = value;
@@ -111,6 +123,7 @@ export function parseArgs(argv: string[]): Args {
   const args: Args = { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort };
   if (caseSensitive) args.caseSensitive = true;
   if (stopWordsFile !== undefined) args.stopWordsFile = stopWordsFile;
+  if (exclude !== undefined) args.exclude = exclude;
   return args;
 }
 
@@ -183,6 +196,14 @@ export async function run(argv: string[], io: Io): Promise<number> {
   if (stopWords) {
     counts = Object.fromEntries(
       Object.entries(counts).filter(([gram]) => !ngramIsAllStopWords(gram, stopWords)),
+    );
+  }
+  const exclude = args.exclude;
+  if (exclude && exclude.size > 0) {
+    counts = Object.fromEntries(
+      Object.entries(counts).filter(
+        ([gram]) => !gram.split(" ").some((word) => exclude.has(word.toLowerCase())),
+      ),
     );
   }
   if (!args.json && !args.csv && !args.markdown && Object.keys(counts).length === 0) {

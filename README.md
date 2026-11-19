@@ -42,6 +42,7 @@ Options:
 - `--sort count|alpha`: `count` (default) sorts by count, highest first, ties alphabetical. `alpha` sorts by word, A–Z. `--min-count` and `--top` apply after sorting. Any other value prints `Invalid --sort value: <v>` plus usage to stderr and exits 1.
 - `--ignore-common`: drop the words in `STOP_WORDS` (see below); matched case-insensitively.
 - `--case-sensitive`: count `The` and `the` separately and keep original case (default: fold to lowercase).
+- `--exclude <words>`: drop a comma-separated list of words, e.g. `--exclude cat,dog`. Matched case-insensitively; empty entries are skipped. Works with `--ignore-common`. With `--ngram`, any phrase containing an excluded word is dropped. A missing value prints `Missing value for --exclude` plus usage and exits 1.
 - `--json`: print a JSON array of `{word, count}` objects instead of `word: count` lines.
 
 By default, output is sorted by count, highest first. Words with the same count are sorted alphabetically. Use `--sort alpha` for A–Z order.
