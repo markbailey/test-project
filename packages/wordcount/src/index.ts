@@ -44,6 +44,15 @@ export function filterStopWords(
   return Object.fromEntries(Object.entries(counts).filter(([word]) => !stopWords.has(word)));
 }
 
+export function filterShortWords(
+  counts: Record<string, number>,
+  minLength: number,
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(counts).filter(([word]) => [...word].length >= minLength),
+  );
+}
+
 export function ngramIsAllStopWords(
   ngram: string,
   stopWords: ReadonlySet<string> = STOP_WORDS,

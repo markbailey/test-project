@@ -1,13 +1,14 @@
 import { readFile } from "node:fs/promises";
-import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/wordcount";
+import { countNgrams, filterShortWords, ngramIsAllStopWords, STOP_WORDS } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--min-length N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
   "  --min-count N    hide words seen fewer than N times (default 1)",
+  "  --min-length N   hide words shorter than N characters (default 1)",
   "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
   "  --ignore-common  skip common stop words",
   "  --stop-words <path>  skip words listed in a file, one per line",
@@ -27,6 +28,7 @@ export interface Args {
   markdown: boolean;
   ngram: number;
   minCount: number;
+  minLength: number;
   stopWordsFile?: string;
 }
 
@@ -47,6 +49,7 @@ export function parseArgs(argv: string[]): Args {
   let markdown = false;
   let ngram = 1;
   let minCount = 1;
+  let minLength = 1;
   let stopWordsFile: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -76,6 +79,13 @@ export function parseArgs(argv: string[]): Args {
         throw new Error(`Invalid --min-count value: ${value ?? "(missing)"}`);
       }
       minCount = n;
+    } else if (arg === "--min-length") {
+      const value = argv[++i];
+      const n = Number(value);
+      if (value === undefined || !Number.isInteger(n) || n < 1) {
+        throw new Error(`Invalid --min-length value: ${value ?? "(missing)"}`);
+      }
+      minLength = n;
     } else if (arg === "--ngram") {
       const value = argv[++i];
       const n = Number(value);
@@ -93,8 +103,8 @@ export function parseArgs(argv: string[]): Args {
   if (json && markdown) throw new Error("Options --markdown and --json cannot be combined");
   if (file === undefined) throw new Error("Missing <file> argument");
   return stopWordsFile === undefined
-    ? { file, top, ignoreCommon, json, csv, markdown, ngram, minCount }
-    : { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, stopWordsFile };
+    ? { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, minLength }
+    : { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, minLength, stopWordsFile };
 }
 
 export function topWords(
@@ -170,6 +180,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
     io.err(`No words found in ${args.file}`);
     return 0;
   }
+  counts = filterShortWords(counts, args.minLength);
   counts = Object.fromEntries(
     Object.entries(counts).filter(([, count]) => count >= args.minCount),
   );
