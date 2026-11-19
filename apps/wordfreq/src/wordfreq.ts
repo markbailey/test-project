@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -12,6 +12,7 @@ export const HELP = [
   "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
   "  --ignore-common  skip common stop words",
   "  --stop-words <path>  skip words listed in a file, one per line",
+  "  --exclude <words>  drop comma-separated words (case-insensitive)",
   "  --json           print results as JSON",
   "  --csv            print results as CSV",
   "  --markdown       print results as a Markdown table",
@@ -32,6 +33,7 @@ export interface Args {
   minCount: number;
   sort: SortMode;
   stopWordsFile?: string;
+  exclude?: Set<string>;
 }
 
 export function csvField(word: string): string {
@@ -53,12 +55,19 @@ export function parseArgs(argv: string[]): Args {
   let minCount = 1;
   let sort: SortMode = "count";
   let stopWordsFile: string | undefined;
+  const exclude = new Set<string>();
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--stop-words") {
       const value = argv[++i];
       if (value === undefined) throw new Error("Missing --stop-words value");
       stopWordsFile = value;
+    } else if (arg === "--exclude") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("Missing value for --exclude");
+      for (const word of value.split(",")) {
+        if (word) exclude.add(word.toLowerCase());
+      }
     } else if (arg === "--ignore-common") {
       ignoreCommon = true;
     } else if (arg === "--json") {
@@ -103,9 +112,10 @@ export function parseArgs(argv: string[]): Args {
   if (json && csv) throw new Error("--csv and --json cannot be used together");
   if (json && markdown) throw new Error("Options --markdown and --json cannot be combined");
   if (file === undefined) throw new Error("Missing <file> argument");
-  return stopWordsFile === undefined
-    ? { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort }
-    : { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort, stopWordsFile };
+  const args: Args = { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort };
+  if (stopWordsFile !== undefined) args.stopWordsFile = stopWordsFile;
+  if (exclude.size > 0) args.exclude = exclude;
+  return args;
 }
 
 export function topWords(
@@ -177,6 +187,14 @@ export async function run(argv: string[], io: Io): Promise<number> {
   if (stopWords) {
     counts = Object.fromEntries(
       Object.entries(counts).filter(([gram]) => !ngramIsAllStopWords(gram, stopWords)),
+    );
+  }
+  const excluded = args.exclude;
+  if (excluded) {
+    counts = Object.fromEntries(
+      Object.entries(counts).filter(
+        ([gram]) => !gram.split(" ").some((word) => excluded.has(word)),
+      ),
     );
   }
   if (!args.json && !args.csv && !args.markdown && Object.keys(counts).length === 0) {
