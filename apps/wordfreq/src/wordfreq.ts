@@ -3,11 +3,12 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
   "  --min-count N    hide words seen fewer than N times (default 1)",
+  "  --sort count|alpha  order by count (default) or alphabetically",
   "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
   "  --ignore-common  skip common stop words",
   "  --stop-words <path>  skip words listed in a file, one per line",
@@ -18,6 +19,8 @@ export const HELP = [
   "  -h, --help       show this help",
 ].join("\n");
 
+export type SortMode = "count" | "alpha";
+
 export interface Args {
   file: string;
   top: number;
@@ -27,6 +30,7 @@ export interface Args {
   markdown: boolean;
   ngram: number;
   minCount: number;
+  sort: SortMode;
   stopWordsFile?: string;
 }
 
@@ -47,6 +51,7 @@ export function parseArgs(argv: string[]): Args {
   let markdown = false;
   let ngram = 1;
   let minCount = 1;
+  let sort: SortMode = "count";
   let stopWordsFile: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -76,6 +81,12 @@ export function parseArgs(argv: string[]): Args {
         throw new Error(`Invalid --min-count value: ${value ?? "(missing)"}`);
       }
       minCount = n;
+    } else if (arg === "--sort") {
+      const value = argv[++i];
+      if (value !== "count" && value !== "alpha") {
+        throw new Error(`Invalid --sort value: ${value ?? "(missing)"}`);
+      }
+      sort = value;
     } else if (arg === "--ngram") {
       const value = argv[++i];
       const n = Number(value);
@@ -93,16 +104,18 @@ export function parseArgs(argv: string[]): Args {
   if (json && markdown) throw new Error("Options --markdown and --json cannot be combined");
   if (file === undefined) throw new Error("Missing <file> argument");
   return stopWordsFile === undefined
-    ? { file, top, ignoreCommon, json, csv, markdown, ngram, minCount }
-    : { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, stopWordsFile };
+    ? { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort }
+    : { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort, stopWordsFile };
 }
 
 export function topWords(
   counts: Record<string, number>,
   n: number,
+  sort: SortMode = "count",
 ): Array<[string, number]> {
+  const byWord = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return Object.entries(counts)
-    .sort(([a, ca], [b, cb]) => cb - ca || (a < b ? -1 : a > b ? 1 : 0))
+    .sort(([a, ca], [b, cb]) => (sort === "alpha" ? byWord(a, b) : cb - ca || byWord(a, b)))
     .slice(0, n);
 }
 
@@ -173,7 +186,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
   counts = Object.fromEntries(
     Object.entries(counts).filter(([, count]) => count >= args.minCount),
   );
-  const top = topWords(counts, args.top);
+  const top = topWords(counts, args.top, args.sort);
   if (args.json) {
     io.out(JSON.stringify(top.map(([word, count]) => ({ word, count }))));
     return 0;
