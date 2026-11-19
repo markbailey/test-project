@@ -38,24 +38,24 @@ describe("topWords", () => {
 describe("parseArgs", () => {
   it("defaults top to 10", () => {
     expect(DEFAULT_TOP).toBe(10);
-    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
   });
 
   it("parses --top before or after file", () => {
-    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1 });
-    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["f.txt", "--top", "3"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
+    expect(parseArgs(["--top", "3", "f.txt"])).toEqual({ file: "f.txt", top: 3, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
   });
 
   it("parses --ignore-common", () => {
-    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false, csv: false, markdown: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["--ignore-common", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: true, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
   });
 
   it("parses --json", () => {
-    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true, csv: false, markdown: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["f.txt", "--json"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: true, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
   });
 
   it("parses --csv", () => {
-    expect(parseArgs(["--csv", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: true, markdown: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["--csv", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: true, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
   });
 
   it("rejects --csv with --json", () => {
@@ -64,10 +64,10 @@ describe("parseArgs", () => {
 
   it("parses --stop-words before or after file", () => {
     expect(parseArgs(["f.txt", "--stop-words", "s.txt"])).toEqual({
-      file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, stopWordsFile: "s.txt",
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1, stopWordsFile: "s.txt",
     });
     expect(parseArgs(["--stop-words", "s.txt", "f.txt"])).toEqual({
-      file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, stopWordsFile: "s.txt",
+      file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1, stopWordsFile: "s.txt",
     });
   });
 
@@ -81,8 +81,8 @@ describe("parseArgs", () => {
   });
 
   it("parses --ngram before or after file", () => {
-    expect(parseArgs(["f.txt", "--ngram", "2"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 2, minCount: 1 });
-    expect(parseArgs(["--ngram", "5", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 5, minCount: 1 });
+    expect(parseArgs(["f.txt", "--ngram", "2"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 2, minCount: 1, minLength: 1 });
+    expect(parseArgs(["--ngram", "5", "f.txt"])).toEqual({ file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 5, minCount: 1, minLength: 1 });
   });
 
   it("rejects bad --ngram values", () => {
@@ -160,7 +160,7 @@ describe("--ngram", () => {
 });
 
 describe("--min-count", () => {
-  const base = { file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1 };
+  const base = { file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minLength: 1 };
 
   it("parseArgs defaults minCount to 1", () => {
     expect(parseArgs(["f.txt"]).minCount).toBe(1);
@@ -233,6 +233,91 @@ describe("--min-count", () => {
   });
 });
 
+describe("--min-length", () => {
+  const base = { file: "f.txt", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1 };
+
+  it("parseArgs defaults minLength to 1", () => {
+    expect(parseArgs(["f.txt"]).minLength).toBe(1);
+  });
+
+  it("parses --min-length before or after file", () => {
+    expect(parseArgs(["f.txt", "--min-length", "3"])).toEqual({ ...base, minLength: 3 });
+    expect(parseArgs(["--min-length", "3", "f.txt"])).toEqual({ ...base, minLength: 3 });
+  });
+
+  it("rejects bad --min-length values", () => {
+    expect(() => parseArgs(["f.txt", "--min-length"])).toThrow("Invalid --min-length value: (missing)");
+    for (const v of ["0", "-2", "abc", "1.5"]) {
+      expect(() => parseArgs(["f.txt", "--min-length", v])).toThrow(`Invalid --min-length value: ${v}`);
+    }
+  });
+
+  for (const v of ["0", "-1", "abc", "2.5"]) {
+    it(`run exits 1 on --min-length ${v}`, async () => {
+      const c = capture("cat dog");
+      expect(await run(["-", "--min-length", v], c.io)).toBe(1);
+      const err = c.err.join("\n");
+      expect(err).toContain(`Invalid --min-length value: ${v}`);
+      expect(err).toContain("Usage");
+      expect(c.out).toEqual([]);
+    });
+  }
+
+  it("run exits 1 when --min-length has no value", async () => {
+    const c = capture("cat dog");
+    expect(await run(["-", "--min-length"], c.io)).toBe(1);
+    expect(c.err.join("\n")).toContain("Invalid --min-length value: (missing)");
+    expect(c.out).toEqual([]);
+  });
+
+  it("prints only words with at least N characters", async () => {
+    const c = capture("a a a bb bb ccc dddd");
+    expect(await run(["-", "--min-length", "3"], c.io)).toBe(0);
+    expect(c.out).toEqual(["ccc: 1", "dddd: 1"]);
+  });
+
+  it("default keeps one-letter words", async () => {
+    const c = capture("a a bb");
+    expect(await run(["-"], c.io)).toBe(0);
+    expect(c.out).toEqual(["a: 2", "bb: 1"]);
+  });
+
+  it("filters before --top", async () => {
+    const c = capture("a a a a b b b b cat cat dog fish");
+    expect(await run(["-", "--min-length", "3", "--top", "2"], c.io)).toBe(0);
+    expect(c.out).toEqual(["cat: 2", "dog: 1"]);
+  });
+
+  it("counts code points, not UTF-16 units", async () => {
+    // 𠮷野 = 2 code points, 3 UTF-16 units
+    const c = capture("𠮷野 𠮷野 日本語 cat");
+    expect(await run(["-", "--min-length", "3"], c.io)).toBe(0);
+    expect(c.out).toEqual(["cat: 1", "日本語: 1"]);
+  });
+
+  it("combines with --min-count and --json", async () => {
+    const c = capture("a a a cat cat dog bird bird");
+    expect(await run(["-", "--min-length", "3", "--min-count", "2", "--json"], c.io)).toBe(0);
+    expect(JSON.parse(c.out[0])).toEqual([
+      { word: "bird", count: 2 },
+      { word: "cat", count: 2 },
+    ]);
+  });
+
+  it("prints [] with --json when no word is long enough", async () => {
+    const c = capture("a bb cc");
+    expect(await run(["-", "--min-length", "5", "--json"], c.io)).toBe(0);
+    expect(c.out).toEqual(["[]"]);
+  });
+
+  it("USAGE and HELP list --min-length", () => {
+    expect(USAGE).toContain("[--min-length N]");
+    const lines = HELP.split("\n").slice(1).filter((l) => l.includes("--min-length N"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/default 1/);
+  });
+});
+
 function capture(stdinText = "") {
   const out: string[] = [];
   const err: string[] = [];
@@ -249,7 +334,7 @@ function capture(stdinText = "") {
 
 describe("stdin", () => {
   it("parseArgs accepts - as file", () => {
-    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1 });
+    expect(parseArgs(["-"])).toEqual({ file: "-", top: 10, ignoreCommon: false, json: false, csv: false, markdown: false, ngram: 1, minCount: 1, minLength: 1 });
   });
 
   it("USAGE mentions -", () => {
