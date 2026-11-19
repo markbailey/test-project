@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -11,6 +11,7 @@ export const HELP = [
   "  --sort count|alpha  order by count (default) or alphabetically",
   "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
   "  --ignore-common  skip common stop words",
+  "  --case-sensitive  count words with different capitalisation separately",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --json           print results as JSON",
   "  --csv            print results as CSV",
@@ -25,6 +26,7 @@ export interface Args {
   file: string;
   top: number;
   ignoreCommon: boolean;
+  caseSensitive?: boolean;
   json: boolean;
   csv: boolean;
   markdown: boolean;
@@ -46,6 +48,7 @@ export function parseArgs(argv: string[]): Args {
   let file: string | undefined;
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
+  let caseSensitive = false;
   let json = false;
   let csv = false;
   let markdown = false;
@@ -61,6 +64,8 @@ export function parseArgs(argv: string[]): Args {
       stopWordsFile = value;
     } else if (arg === "--ignore-common") {
       ignoreCommon = true;
+    } else if (arg === "--case-sensitive") {
+      caseSensitive = true;
     } else if (arg === "--json") {
       json = true;
     } else if (arg === "--csv") {
@@ -103,9 +108,10 @@ export function parseArgs(argv: string[]): Args {
   if (json && csv) throw new Error("--csv and --json cannot be used together");
   if (json && markdown) throw new Error("Options --markdown and --json cannot be combined");
   if (file === undefined) throw new Error("Missing <file> argument");
-  return stopWordsFile === undefined
-    ? { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort }
-    : { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort, stopWordsFile };
+  const args: Args = { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort };
+  if (caseSensitive) args.caseSensitive = true;
+  if (stopWordsFile !== undefined) args.stopWordsFile = stopWordsFile;
+  return args;
 }
 
 export function topWords(
@@ -170,7 +176,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
         .map((line) => line.toLowerCase()),
     );
   }
-  let counts = countNgrams(text, args.ngram);
+  let counts = countNgrams(text, args.ngram, { caseSensitive: args.caseSensitive });
   const stopWords = fileStopWords
     ? (args.ignoreCommon ? new Set([...STOP_WORDS, ...fileStopWords]) : fileStopWords)
     : (args.ignoreCommon ? STOP_WORDS : undefined);
