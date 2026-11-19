@@ -30,14 +30,14 @@ Any failing step fails the job. A new push cancels the earlier run on the same r
 CLI in `apps/wordfreq` that prints the most frequent words in a text file.
 
 ```sh
-pnpm --filter @test-project/wordfreq start <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
+pnpm --filter @test-project/wordfreq start <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
 ```
 
 pnpm runs the script from inside `apps/wordfreq`, so a relative `<file>` path is resolved from that folder, not from where you ran the command. Use an absolute path to avoid this.
 
 Options:
 
-- `--top N`: show the N most frequent words. N must be an integer of 0 or more. Default is 10.
+- `--top N`, `-n N`: show the N most frequent words. N must be an integer of 0 or more. Default is 10.
 - `--min-count N`: hide words seen fewer than N times, applied before `--top`. N must be an integer of 1 or more. Default is 1.
 - `--sort count|alpha`: `count` (default) sorts by count, highest first, ties alphabetical. `alpha` sorts by word, A–Z. `--min-count` and `--top` apply after sorting. Any other value prints `Invalid --sort value: <v>` plus usage to stderr and exits 1.
 - `--ignore-common`: drop the words in `STOP_WORDS` (see below); matched case-insensitively.
@@ -58,7 +58,7 @@ Errors: a bad or missing argument prints the message plus the usage line to stde
 
 ```
 Invalid --top value: x
-Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
+Usage: wordfreq <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
 ```
 
 A file that can't be read prints `Error: cannot read file: <file>` and exits 1.

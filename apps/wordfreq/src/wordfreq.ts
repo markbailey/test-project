@@ -3,10 +3,10 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
-  `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
+  `  --top N, -n N    show the N most frequent words (default ${DEFAULT_TOP})`,
   "  --min-count N    hide words seen fewer than N times (default 1)",
   "  --sort count|alpha  order by count (default) or alphabetically",
   "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
@@ -94,11 +94,11 @@ export function parseArgs(argv: string[]): Args {
       csv = true;
     } else if (arg === "--markdown") {
       markdown = true;
-    } else if (arg === "--top") {
+    } else if (arg === "--top" || arg === "-n") {
       const value = argv[++i];
       const n = Number(value);
       if (value === undefined || !Number.isInteger(n) || n < 0) {
-        throw new Error(`Invalid --top value: ${value ?? "(missing)"}`);
+        throw new Error(`Invalid ${arg} value: ${value ?? "(missing)"}`);
       }
       top = n;
     } else if (arg === "--min-count") {
