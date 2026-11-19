@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -14,7 +14,8 @@ export const HELP = [
   "  --case-sensitive  count words with different capitalisation separately",
   "  --no-numbers     drop tokens made only of digits",
   "  --stop-words <path>  skip words listed in a file, one per line",
-  "  --json           print results as JSON",
+  "  --exclude <words>  drop comma-separated words from the output (ignores case)",
+  "  --json          print results as JSON",
   "  --csv            print results as CSV",
   "  --markdown       print results as a Markdown table",
   "  --version        print the version",
@@ -36,6 +37,7 @@ export interface Args {
   minCount: number;
   sort: SortMode;
   stopWordsFile?: string;
+  exclude?: Set<string>;
 }
 
 export function csvField(word: string): string {
@@ -59,12 +61,22 @@ export function parseArgs(argv: string[]): Args {
   let minCount = 1;
   let sort: SortMode = "count";
   let stopWordsFile: string | undefined;
+  let exclude: Set<string> | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--stop-words") {
       const value = argv[++i];
       if (value === undefined) throw new Error("Missing --stop-words value");
       stopWordsFile = value;
+    } else if (arg === "--exclude") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("Missing value for --exclude");
+      exclude = new Set(
+        value
+          .split(",")
+          .map((w) => w.trim().toLowerCase())
+          .filter((w) => w),
+      );
     } else if (arg === "--ignore-common") {
       ignoreCommon = true;
     } else if (arg === "--case-sensitive") {
@@ -117,6 +129,7 @@ export function parseArgs(argv: string[]): Args {
   if (caseSensitive) args.caseSensitive = true;
   if (noNumbers) args.noNumbers = true;
   if (stopWordsFile !== undefined) args.stopWordsFile = stopWordsFile;
+  if (exclude !== undefined) args.exclude = exclude;
   return args;
 }
 
@@ -194,6 +207,12 @@ export async function run(argv: string[], io: Io): Promise<number> {
   if (args.noNumbers) {
     counts = Object.fromEntries(
       Object.entries(counts).filter(([gram]) => !gram.split(" ").some((t) => /^\p{Nd}+$/u.test(t))),
+    );
+  }
+  const exclude = args.exclude;
+  if (exclude) {
+    counts = Object.fromEntries(
+      Object.entries(counts).filter(([gram]) => !gram.split(" ").some((t) => exclude.has(t.toLowerCase()))),
     );
   }
   if (!args.json && !args.csv && !args.markdown && Object.keys(counts).length === 0) {
