@@ -30,7 +30,7 @@ Any failing step fails the job. A new push cancels the earlier run on the same r
 CLI in `apps/wordfreq` that prints the most frequent words in a text file.
 
 ```sh
-pnpm --filter @test-project/wordfreq start <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
+pnpm --filter @test-project/wordfreq start <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--bars] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
 ```
 
 pnpm runs the script from inside `apps/wordfreq`, so a relative `<file>` path is resolved from that folder, not from where you ran the command. Use an absolute path to avoid this.
@@ -46,6 +46,7 @@ Options:
 - `--ngram N`: count phrases of N words, 1 to 5. Default is 1.
 - `--no-numbers`: drop tokens made only of digits.
 - `--percent`: show each word's share of all words as a percentage.
+- `--bars`: add a `#` bar after each count in plain output. The top word gets 40 `#`, others scale in proportion, minimum 1. Ignored by `--json`, `--csv` and `--markdown`.
 - `--stop-words <path>`: skip the words listed in a file, one per line.
 - `--csv`: print results as CSV.
 - `--markdown`: print results as a Markdown table.
@@ -58,7 +59,7 @@ Errors: a bad or missing argument prints the message plus the usage line to stde
 
 ```
 Invalid --top value: x
-Usage: wordfreq <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
+Usage: wordfreq <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--bars] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
 ```
 
 A file that can't be read prints `Error: cannot read file: <file>` and exits 1.
