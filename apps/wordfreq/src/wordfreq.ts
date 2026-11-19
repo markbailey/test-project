@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
+export const BAR_WIDTH = 40;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--stop-words <path>] [--exclude <words>] [--bars] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -15,6 +16,7 @@ export const HELP = [
   "  --no-numbers     drop tokens made only of digits",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --exclude <words>  drop comma-separated words from the output (ignores case)",
+  "  --bars           append a # bar after each count (plain output only)",
   "  --json          print results as JSON",
   "  --csv            print results as CSV",
   "  --markdown       print results as a Markdown table",
@@ -30,6 +32,7 @@ export interface Args {
   ignoreCommon: boolean;
   caseSensitive?: boolean;
   noNumbers?: boolean;
+  bars?: boolean;
   json: boolean;
   csv: boolean;
   markdown: boolean;
@@ -54,6 +57,7 @@ export function parseArgs(argv: string[]): Args {
   let ignoreCommon = false;
   let caseSensitive = false;
   let noNumbers = false;
+  let bars = false;
   let json = false;
   let csv = false;
   let markdown = false;
@@ -83,6 +87,8 @@ export function parseArgs(argv: string[]): Args {
       caseSensitive = true;
     } else if (arg === "--no-numbers") {
       noNumbers = true;
+    } else if (arg === "--bars") {
+      bars = true;
     } else if (arg === "--json") {
       json = true;
     } else if (arg === "--csv") {
@@ -126,6 +132,7 @@ export function parseArgs(argv: string[]): Args {
   if (json && markdown) throw new Error("Options --markdown and --json cannot be combined");
   if (file === undefined) throw new Error("Missing <file> argument");
   const args: Args = { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort };
+  if (bars) args.bars = true;
   if (caseSensitive) args.caseSensitive = true;
   if (noNumbers) args.noNumbers = true;
   if (stopWordsFile !== undefined) args.stopWordsFile = stopWordsFile;
@@ -238,8 +245,10 @@ export async function run(argv: string[], io: Io): Promise<number> {
     for (const [word, count] of top) io.out(`${csvField(word)},${count}`);
     return 0;
   }
+  const max = Math.max(...top.map(([, count]) => count));
   for (const [word, count] of top) {
-    io.out(`${word}: ${count}`);
+    const bar = args.bars ? ` ${"#".repeat(Math.max(1, Math.round((count / max) * BAR_WIDTH)))}` : "";
+    io.out(`${word}: ${count}${bar}`);
   }
   return 0;
 }
