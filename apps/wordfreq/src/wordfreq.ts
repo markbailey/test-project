@@ -14,7 +14,7 @@ export const HELP = [
   "  --case-sensitive  count words with different capitalisation separately",
   "  --no-numbers     drop tokens made only of digits",
   "  --percent        show each word's share of all words as a percentage",
-  "  --reverse        show the least frequent words first (ties A-Z)",
+  "  --reverse        show the least frequent words first (count order only; ties A-Z)",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --exclude <words>  drop comma-separated words from the output (ignores case)",
   "  --json          print results as JSON",

@@ -30,7 +30,7 @@ Any failing step fails the job. A new push cancels the earlier run on the same r
 CLI in `apps/wordfreq` that prints the most frequent words in a text file.
 
 ```sh
-pnpm --filter @test-project/wordfreq start <file> [--top N] [--ignore-common] [--json]
+pnpm --filter @test-project/wordfreq start <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--reverse] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
 ```
 
 pnpm runs the script from inside `apps/wordfreq`, so a relative `<file>` path is resolved from that folder, not from where you ran the command. Use an absolute path to avoid this.
@@ -43,6 +43,14 @@ Options:
 - `--ignore-common`: drop the words in `STOP_WORDS` (see below); matched case-insensitively.
 - `--exclude <words>`: comma-separated words to drop, e.g. `--exclude cat,dog`. Matching ignores case; empty entries (`a,,b`) are skipped. Works with `--ignore-common`. With `--ngram`, any phrase containing an excluded word is dropped. A missing value prints `Missing value for --exclude` plus usage and exits 1.
 - `--case-sensitive`: count `The` and `the` separately and keep original case (default: fold to lowercase).
+- `--ngram N`: count phrases of N words, 1 to 5. Default is 1.
+- `--no-numbers`: drop tokens made only of digits.
+- `--percent`: show each word's share of all words as a percentage.
+- `--reverse`: show the least frequent words first, ties alphabetical A–Z. With `--top N`, the N least frequent words. `--sort alpha` ignores it.
+- `--stop-words <path>`: skip the words listed in a file, one per line.
+- `--csv`: print results as CSV.
+- `--markdown`: print results as a Markdown table.
+- `--version`: print the version.
 - `--json`: print a JSON array of `{word, count}` objects instead of `word: count` lines.
 
 By default, output is sorted by count, highest first. Words with the same count are sorted alphabetically. Use `--sort alpha` for A–Z order.
@@ -51,7 +59,7 @@ Errors: a bad or missing argument prints the message plus the usage line to stde
 
 ```
 Invalid --top value: x
-Usage: wordfreq <file> [--top N] [--ignore-common] [--json]
+Usage: wordfreq <file|-> [--top N] [--min-count N] [-n N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--reverse] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]
 ```
 
 A file that can't be read prints `Error: cannot read file: <file>` and exits 1.
