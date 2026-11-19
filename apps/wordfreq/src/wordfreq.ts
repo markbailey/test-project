@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/wordcount";
 
 export const DEFAULT_TOP = 10;
+export const BAR_WIDTH = 40;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--percent] [--bars] [--stop-words <path>] [--exclude <words>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -14,6 +15,7 @@ export const HELP = [
   "  --case-sensitive  count words with different capitalisation separately",
   "  --no-numbers     drop tokens made only of digits",
   "  --percent        show each word's share of all words as a percentage",
+  "  --bars           add a # bar after each count (top word gets 40; plain output only)",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --exclude <words>  drop comma-separated words from the output (ignores case)",
   "  --json          print results as JSON",
@@ -32,6 +34,7 @@ export interface Args {
   caseSensitive?: boolean;
   noNumbers?: boolean;
   percent?: boolean;
+  bars?: boolean;
   json: boolean;
   csv: boolean;
   markdown: boolean;
@@ -57,6 +60,7 @@ export function parseArgs(argv: string[]): Args {
   let caseSensitive = false;
   let noNumbers = false;
   let percent = false;
+  let bars = false;
   let json = false;
   let csv = false;
   let markdown = false;
@@ -84,6 +88,8 @@ export function parseArgs(argv: string[]): Args {
       ignoreCommon = true;
     } else if (arg === "--case-sensitive") {
       caseSensitive = true;
+    } else if (arg === "--bars") {
+      bars = true;
     } else if (arg === "--percent") {
       percent = true;
     } else if (arg === "--no-numbers") {
@@ -131,6 +137,7 @@ export function parseArgs(argv: string[]): Args {
   if (json && markdown) throw new Error("Options --markdown and --json cannot be combined");
   if (file === undefined) throw new Error("Missing <file> argument");
   const args: Args = { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort };
+  if (bars) args.bars = true;
   if (percent) args.percent = true;
   if (caseSensitive) args.caseSensitive = true;
   if (noNumbers) args.noNumbers = true;
@@ -252,8 +259,11 @@ export async function run(argv: string[], io: Io): Promise<number> {
     for (const [word, count] of top) io.out(`${csvField(word)},${count}`);
     return 0;
   }
+  const maxCount = Math.max(...top.map(([, count]) => count));
   for (const [word, count] of top) {
-    io.out(args.percent ? `${word}: ${count} (${percentOf(count).toFixed(1)}%)` : `${word}: ${count}`);
+    let line = args.percent ? `${word}: ${count} (${percentOf(count).toFixed(1)}%)` : `${word}: ${count}`;
+    if (args.bars) line += ` ${"#".repeat(Math.max(1, Math.round((count / maxCount) * BAR_WIDTH)))}`;
+    io.out(line);
   }
   return 0;
 }
