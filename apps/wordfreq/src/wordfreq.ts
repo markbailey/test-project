@@ -3,7 +3,7 @@ import { countNgrams, ngramIsAllStopWords, STOP_WORDS } from "@test-project/word
 
 export const DEFAULT_TOP = 10;
 export const USAGE =
-  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
+  "Usage: wordfreq <file|-> [--top N] [--min-count N] [--sort count|alpha] [--ngram N] [--ignore-common] [--case-sensitive] [--no-numbers] [--stop-words <path>] [--json] [--csv] [--markdown] [--version]";
 export const HELP = [
   USAGE,
   `  --top N          show the N most frequent words (default ${DEFAULT_TOP})`,
@@ -12,6 +12,7 @@ export const HELP = [
   "  --ngram N        count phrases of N words, 1 to 5 (default 1)",
   "  --ignore-common  skip common stop words",
   "  --case-sensitive  count words with different capitalisation separately",
+  "  --no-numbers     drop tokens made only of digits",
   "  --stop-words <path>  skip words listed in a file, one per line",
   "  --json           print results as JSON",
   "  --csv            print results as CSV",
@@ -27,6 +28,7 @@ export interface Args {
   top: number;
   ignoreCommon: boolean;
   caseSensitive?: boolean;
+  noNumbers?: boolean;
   json: boolean;
   csv: boolean;
   markdown: boolean;
@@ -49,6 +51,7 @@ export function parseArgs(argv: string[]): Args {
   let top = DEFAULT_TOP;
   let ignoreCommon = false;
   let caseSensitive = false;
+  let noNumbers = false;
   let json = false;
   let csv = false;
   let markdown = false;
@@ -66,6 +69,8 @@ export function parseArgs(argv: string[]): Args {
       ignoreCommon = true;
     } else if (arg === "--case-sensitive") {
       caseSensitive = true;
+    } else if (arg === "--no-numbers") {
+      noNumbers = true;
     } else if (arg === "--json") {
       json = true;
     } else if (arg === "--csv") {
@@ -110,6 +115,7 @@ export function parseArgs(argv: string[]): Args {
   if (file === undefined) throw new Error("Missing <file> argument");
   const args: Args = { file, top, ignoreCommon, json, csv, markdown, ngram, minCount, sort };
   if (caseSensitive) args.caseSensitive = true;
+  if (noNumbers) args.noNumbers = true;
   if (stopWordsFile !== undefined) args.stopWordsFile = stopWordsFile;
   return args;
 }
@@ -183,6 +189,11 @@ export async function run(argv: string[], io: Io): Promise<number> {
   if (stopWords) {
     counts = Object.fromEntries(
       Object.entries(counts).filter(([gram]) => !ngramIsAllStopWords(gram, stopWords)),
+    );
+  }
+  if (args.noNumbers) {
+    counts = Object.fromEntries(
+      Object.entries(counts).filter(([gram]) => !gram.split(" ").some((t) => /^\p{Nd}+$/u.test(t))),
     );
   }
   if (!args.json && !args.csv && !args.markdown && Object.keys(counts).length === 0) {
